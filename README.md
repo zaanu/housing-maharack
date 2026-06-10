@@ -35,6 +35,15 @@ Production build: `npm run build && npm start` (Node ≥ 20.9).
 - Floors 13–14 are two duplex **penthouses** presented as a frontal two-level
   section view — double-height living void, connecting staircase, furnished
   upper level — selectable via the "PH" entry in the floor selector.
+- The tower sits in a full **gated campus** (`src/components/scene/Site.tsx`):
+  compound wall, main gate with signage and guard cabin, tree-lined driveway,
+  visitor parking, flowering landscaping and a children's playground. The
+  intro camera sweeps from the main gate up to the aerial view.
+- Hovering any **room** inside an opened home shows its name and
+  floor-plan-style dimensions (e.g. *Kitchen · 17'5" × 9'0"*); campus
+  amenities (gate, playground, parking, garden) have hover labels too. Room
+  zones live in `src/components/scene/Interior.tsx` (`ZoneDef` lists; scale is
+  6 ft per scene unit via `FT_PER_UNIT`).
 - Devices without WebGL automatically get a 2D floor-plan explorer with the
   same data and selection flow.
 
