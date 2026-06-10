@@ -37,8 +37,14 @@ Production build: `npm run build && npm start` (Node ≥ 20.9).
   upper level — selectable via the "PH" entry in the floor selector.
 - The tower sits in a full **gated campus** (`src/components/scene/Site.tsx`):
   compound wall, main gate with signage and guard cabin, tree-lined driveway,
-  visitor parking, flowering landscaping and a children's playground. The
-  intro camera sweeps from the main gate up to the aerial view.
+  visitor parking, flowering landscaping, a swimming pool with animated water
+  and loungers, a glass residents' gym and a children's playground. The intro
+  camera sweeps from the main gate up to the aerial view.
+- Available homes show a **Reserve** button: ₹30,000 + 18% GST, fully
+  refundable. Requests are recorded via `POST /api/reserve` to
+  `data/reservations.jsonl` and listed in the admin Monitoring section.
+  No payment gateway is wired — integrate Razorpay/Stripe in
+  `src/components/ui/HomePanel.tsx` (`payReservation`) when ready.
 - Hovering any **room** inside an opened home shows its name and
   floor-plan-style dimensions (e.g. *Kitchen · 17'5" × 9'0"*); campus
   amenities (gate, playground, parking, garden) have hover labels too. Room
