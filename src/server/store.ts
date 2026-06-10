@@ -112,7 +112,7 @@ export function saveUpload(kind: "floor-plan" | "interior", homeId: string, file
 
 // --- logs (error monitoring + analytics) -----------------------------------
 
-export function appendLog(file: "analytics.jsonl" | "errors.jsonl", entry: object): void {
+export function appendLog(file: "analytics.jsonl" | "errors.jsonl" | "reservations.jsonl", entry: object): void {
   fs.mkdirSync(DATA_DIR, { recursive: true });
   fs.appendFileSync(
     path.join(DATA_DIR, file),
@@ -120,7 +120,7 @@ export function appendLog(file: "analytics.jsonl" | "errors.jsonl", entry: objec
   );
 }
 
-export function readLogTail(file: "analytics.jsonl" | "errors.jsonl", n = 500): object[] {
+export function readLogTail(file: "analytics.jsonl" | "errors.jsonl" | "reservations.jsonl", n = 500): object[] {
   const p = path.join(DATA_DIR, file);
   if (!fs.existsSync(p)) return [];
   return fs

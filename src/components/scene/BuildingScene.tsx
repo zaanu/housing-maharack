@@ -57,6 +57,9 @@ function CameraRig({
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
+    // in the exterior view the orbit target sits inside the tower — keep the
+    // camera outside the facade (inside a box every face is backface-culled)
+    c.minDistance = n == null ? 12.5 : 6;
     if (n == null) {
       // full exterior view (skip during the intro sweep)
       if (!intro.current) c.setLookAt(27 * zoomOut, 21 * zoomOut, 31 * zoomOut, 0, 5.5, 2, true);
@@ -114,8 +117,9 @@ function CameraRig({
     <CameraControls
       ref={controls}
       makeDefault
-      minDistance={3.5}
+      minDistance={6}
       maxDistance={60}
+      dollySpeed={0.35}
       maxPolarAngle={Math.PI / 2 - 0.04}
       smoothTime={0.5}
     />
@@ -158,6 +162,8 @@ export default function BuildingScene({
         intensity={1.6}
         castShadow
         shadow-mapSize={[2048, 2048]}
+        shadow-radius={6}
+        shadow-bias={-0.0002}
         shadow-camera-left={-30}
         shadow-camera-right={30}
         shadow-camera-top={30}

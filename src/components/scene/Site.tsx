@@ -2,27 +2,39 @@
 
 // Gated-community campus around the tower: compound wall, main gate with
 // signage and guard cabin, tree-lined driveway, visitor parking, flowering
-// shrubs and a colourful children's playground — the "story" around the home.
+// shrubs, a swimming pool, a residents' gym and a colourful children's
+// playground — the "story" around the home. Everything is procedural.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
+import * as THREE from "three";
 
 const ASPHALT = "#41464d";
 const KERB = "#d8d4c8";
 const WALLC = "#cdd3d8";
 const PILLAR = "#9aa3ab";
 const STEELD = "#46535f";
-const TRUNK = "#8a6f4d";
-const LEAF_A = "#55893f";
-const LEAF_B = "#6da14b";
+const TRUNK = "#6e5238";
+const PALM_TRUNK = "#8a6f4d";
 const PLAY_RED = "#d23c3c";
 const PLAY_YELLOW = "#f3c014";
 const PLAY_BLUE = "#2e6bb0";
 const PAD_BLUE = "#2f6cb3";
 const PAD_SAND = "#dfa94e";
 const GLOW = "#ffd9a0";
+const DECK = "#e9dfc8";
+const WATER = "#37b1d8";
+const CANOPY = ["#e2654f", "#f3c014", "#5b8fa8"];
+const LEAFS = ["#3f7a37", "#4e8c41", "#5fa04c", "#69a958", "#578f3f"];
 
 type V3 = [number, number, number];
+
+/** Deterministic pseudo-random in [0,1) from a seed and index. */
+const rnd = (seed: number, i: number) => {
+  const v = Math.sin(seed * 37.13 + i * 13.7) * 43758.5453;
+  return v - Math.floor(v);
+};
 
 function Bx({
   p,
@@ -30,65 +42,140 @@ function Bx({
   c,
   ry = 0,
   rz = 0,
+  rx = 0,
   shadow = false,
+  opacity = 1,
+  glow = 0,
 }: {
   p: V3;
   s: V3;
   c: string;
   ry?: number;
   rz?: number;
+  rx?: number;
   shadow?: boolean;
+  opacity?: number;
+  glow?: number;
 }) {
   return (
-    <mesh position={p} rotation={[0, ry, rz]} castShadow={shadow}>
+    <mesh position={p} rotation={[rx, ry, rz]} castShadow={shadow}>
       <boxGeometry args={s} />
-      <meshStandardMaterial color={c} roughness={0.85} />
+      <meshStandardMaterial
+        color={c}
+        roughness={0.85}
+        transparent={opacity < 1}
+        opacity={opacity}
+        emissive={glow > 0 ? c : "#000000"}
+        emissiveIntensity={glow}
+      />
     </mesh>
   );
 }
 
-function Palm({ p, h = 2.0 }: { p: V3; h?: number }) {
-  const fronds = Array.from({ length: 6 }, (_, i) => (i * Math.PI) / 3);
+/** Broadleaf tree: tapered, slightly leaning trunk + layered canopy puffs. */
+function Tree({ p, scale = 1, seed = 1 }: { p: V3; scale?: number; seed?: number }) {
+  const h = (1.15 + rnd(seed, 0) * 0.5) * scale;
+  const lean = (rnd(seed, 1) - 0.5) * 0.18;
+  const puffs = Array.from({ length: 8 }, (_, i) => {
+    const a = (i / 8) * Math.PI * 2 + rnd(seed, i + 2) * 1.2;
+    const r = 0.16 + rnd(seed, i + 10) * 0.34;
+    return {
+      x: Math.cos(a) * (0.28 + rnd(seed, i + 20) * 0.22) * scale,
+      y: h + (rnd(seed, i + 30) - 0.25) * 0.5 * scale,
+      z: Math.sin(a) * (0.28 + rnd(seed, i + 40) * 0.22) * scale,
+      r: r * scale,
+      c: LEAFS[Math.floor(rnd(seed, i + 50) * LEAFS.length)],
+    };
+  });
   return (
-    <group position={p}>
+    <group position={p} rotation={[0, rnd(seed, 60) * Math.PI, lean]}>
       <mesh position={[0, h / 2, 0]} castShadow>
-        <cylinderGeometry args={[0.05, 0.09, h, 8]} />
+        <cylinderGeometry args={[0.05 * scale, 0.11 * scale, h, 10]} />
         <meshStandardMaterial color={TRUNK} roughness={1} />
       </mesh>
-      {fronds.map((a, i) => (
-        <mesh
-          key={i}
-          position={[Math.cos(a) * 0.32, h + 0.06, Math.sin(a) * 0.32]}
-          rotation={[0.45 * Math.sin(a), -a, 0.45 * Math.cos(a)]}
-          castShadow
-        >
-          <boxGeometry args={[0.72, 0.02, 0.16]} />
-          <meshStandardMaterial color={i % 2 ? LEAF_A : LEAF_B} roughness={1} />
+      <mesh position={[0.12 * scale, h * 0.7, 0]} rotation={[0, 0, -0.7]} castShadow>
+        <cylinderGeometry args={[0.025 * scale, 0.045 * scale, 0.5 * scale, 8]} />
+        <meshStandardMaterial color={TRUNK} roughness={1} />
+      </mesh>
+      <mesh position={[0, h + 0.18 * scale, 0]} castShadow>
+        <sphereGeometry args={[0.42 * scale, 14, 12]} />
+        <meshStandardMaterial color={LEAFS[1]} roughness={1} />
+      </mesh>
+      {puffs.map((q, i) => (
+        <mesh key={i} position={[q.x, q.y, q.z]} castShadow>
+          <sphereGeometry args={[q.r, 12, 10]} />
+          <meshStandardMaterial color={q.c} roughness={1} />
         </mesh>
       ))}
-      <mesh position={[0, h + 0.05, 0]}>
-        <sphereGeometry args={[0.08, 8, 6]} />
-        <meshStandardMaterial color={LEAF_A} roughness={1} />
-      </mesh>
     </group>
   );
 }
 
-function Shrub({ p, flower = "#c75db4" }: { p: V3; flower?: string }) {
+/** Palm with a curved segmented trunk and drooping multi-segment fronds. */
+function Palm({ p, h = 2.0, seed = 1 }: { p: V3; h?: number; seed?: number }) {
+  const segs = 6;
+  const bend = 0.07 + rnd(seed, 0) * 0.05;
+  const trunk = Array.from({ length: segs }, (_, i) => ({
+    x: bend * i * i * 0.16,
+    y: (i + 0.5) * (h / segs),
+    rz: -bend * i * 0.9,
+  }));
+  const topX = bend * segs * segs * 0.155;
+  const fronds = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2 + rnd(seed, i) * 0.5);
+  return (
+    <group position={p} rotation={[0, rnd(seed, 9) * Math.PI * 2, 0]}>
+      {trunk.map((t, i) => (
+        <mesh key={i} position={[t.x, t.y, 0]} rotation={[0, 0, t.rz]} castShadow>
+          <cylinderGeometry args={[0.055 - i * 0.004, 0.075 - i * 0.004, h / segs + 0.04, 10]} />
+          <meshStandardMaterial color={PALM_TRUNK} roughness={1} />
+        </mesh>
+      ))}
+      <group position={[topX, h + 0.04, 0]}>
+        {fronds.map((a, i) => (
+          <group key={i} rotation={[0, -a, 0]}>
+            <Bx p={[0.3, 0.05, 0]} s={[0.55, 0.025, 0.15]} c={LEAFS[i % 2 ? 2 : 4]} rz={-0.25} shadow />
+            <Bx p={[0.72, 0.0, 0]} s={[0.45, 0.02, 0.11]} c={LEAFS[i % 2 ? 3 : 2]} rz={-0.65} />
+            <Bx p={[1.0, -0.16, 0]} s={[0.3, 0.016, 0.07]} c={LEAFS[i % 2 ? 2 : 3]} rz={-1.0} />
+          </group>
+        ))}
+        <mesh>
+          <sphereGeometry args={[0.09, 10, 8]} />
+          <meshStandardMaterial color={LEAFS[0]} roughness={1} />
+        </mesh>
+        {[0.12, -0.1].map((x) => (
+          <mesh key={x} position={[x, -0.08, 0.06]} castShadow>
+            <sphereGeometry args={[0.05, 8, 6]} />
+            <meshStandardMaterial color="#7a5c33" roughness={1} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+function Shrub({ p, flower = "#c75db4", seed = 1 }: { p: V3; flower?: string; seed?: number }) {
+  const blooms = Array.from({ length: 5 }, (_, i) => ({
+    x: (rnd(seed, i) - 0.5) * 0.36,
+    y: 0.16 + rnd(seed, i + 5) * 0.18,
+    z: (rnd(seed, i + 9) - 0.5) * 0.3,
+    r: 0.045 + rnd(seed, i + 13) * 0.05,
+  }));
   return (
     <group position={p}>
       <mesh position={[0, 0.16, 0]} castShadow>
-        <sphereGeometry args={[0.22, 8, 6]} />
-        <meshStandardMaterial color={LEAF_A} roughness={1} />
+        <sphereGeometry args={[0.23, 12, 10]} />
+        <meshStandardMaterial color={LEAFS[0]} roughness={1} />
       </mesh>
-      <mesh position={[0.12, 0.26, 0.06]}>
-        <sphereGeometry args={[0.1, 6, 5]} />
-        <meshStandardMaterial color={flower} roughness={1} />
+      <mesh position={[0.14, 0.2, 0.08]} castShadow>
+        <sphereGeometry args={[0.15, 10, 8]} />
+        <meshStandardMaterial color={LEAFS[2]} roughness={1} />
       </mesh>
-      <mesh position={[-0.12, 0.24, -0.04]}>
-        <sphereGeometry args={[0.08, 6, 5]} />
-        <meshStandardMaterial color={flower} roughness={1} />
-      </mesh>
+      {blooms.map((b, i) => (
+        <mesh key={i} position={[b.x, b.y, b.z]}>
+          <sphereGeometry args={[b.r, 8, 6]} />
+          <meshStandardMaterial color={flower} roughness={0.9} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -96,9 +183,12 @@ function Shrub({ p, flower = "#c75db4" }: { p: V3; flower?: string }) {
 function Lamp({ p }: { p: V3 }) {
   return (
     <group position={p}>
-      <Bx p={[0, 0.55, 0]} s={[0.05, 1.1, 0.05]} c={STEELD} />
+      <mesh position={[0, 0.55, 0]} castShadow>
+        <cylinderGeometry args={[0.022, 0.035, 1.1, 8]} />
+        <meshStandardMaterial color={STEELD} roughness={0.6} metalness={0.4} />
+      </mesh>
       <mesh position={[0, 1.14, 0]}>
-        <sphereGeometry args={[0.07, 8, 6]} />
+        <sphereGeometry args={[0.07, 10, 8]} />
         <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={1.4} />
       </mesh>
     </group>
@@ -107,21 +197,39 @@ function Lamp({ p }: { p: V3 }) {
 
 function Car({ p, c, ry = 0 }: { p: V3; c: string; ry?: number }) {
   const wheels: V3[] = [
-    [0.55, 0.14, 0.42],
-    [-0.55, 0.14, 0.42],
-    [0.55, 0.14, -0.42],
-    [-0.55, 0.14, -0.42],
+    [0.55, 0.15, 0.43],
+    [-0.55, 0.15, 0.43],
+    [0.55, 0.15, -0.43],
+    [-0.55, 0.15, -0.43],
   ];
   return (
     <group position={p} rotation={[0, ry, 0]}>
-      <Bx p={[0, 0.32, 0]} s={[1.7, 0.3, 0.82]} c={c} shadow />
-      <Bx p={[-0.1, 0.56, 0]} s={[0.9, 0.24, 0.74]} c={c} />
-      <Bx p={[-0.1, 0.58, 0]} s={[0.86, 0.18, 0.76]} c="#2b3138" />
+      {/* body, hood and boot */}
+      <Bx p={[0, 0.33, 0]} s={[1.78, 0.26, 0.84]} c={c} shadow />
+      <Bx p={[0.74, 0.42, 0]} s={[0.32, 0.08, 0.8]} c={c} />
+      <Bx p={[-0.78, 0.42, 0]} s={[0.24, 0.08, 0.8]} c={c} />
+      {/* cabin with tinted glass + slanted windshields */}
+      <Bx p={[-0.08, 0.58, 0]} s={[0.78, 0.22, 0.72]} c="#27313a" opacity={0.92} />
+      <Bx p={[-0.08, 0.7, 0]} s={[0.82, 0.04, 0.76]} c={c} />
+      <Bx p={[0.42, 0.55, 0]} s={[0.34, 0.22, 0.7]} c="#27313a" rz={-0.55} opacity={0.92} />
+      <Bx p={[-0.56, 0.55, 0]} s={[0.3, 0.22, 0.7]} c="#27313a" rz={0.5} opacity={0.92} />
+      {/* lights */}
+      <Bx p={[0.9, 0.38, 0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={1.2} />
+      <Bx p={[0.9, 0.38, -0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={1.2} />
+      <Bx p={[-0.9, 0.38, 0.26]} s={[0.03, 0.05, 0.13]} c="#d33b30" glow={0.9} />
+      <Bx p={[-0.9, 0.38, -0.26]} s={[0.03, 0.05, 0.13]} c="#d33b30" glow={0.9} />
+      {/* wheels with hubs */}
       {wheels.map((w, i) => (
-        <mesh key={i} position={w} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.14, 0.14, 0.1, 10]} />
-          <meshStandardMaterial color="#1d2126" roughness={1} />
-        </mesh>
+        <group key={i} position={w} rotation={[Math.PI / 2, 0, 0]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.15, 0.15, 0.12, 16]} />
+            <meshStandardMaterial color="#1d2126" roughness={0.9} />
+          </mesh>
+          <mesh position={[0, w[2] > 0 ? 0.065 : -0.065, 0]}>
+            <cylinderGeometry args={[0.075, 0.075, 0.01, 12]} />
+            <meshStandardMaterial color="#b9bdc2" roughness={0.4} metalness={0.6} />
+          </mesh>
+        </group>
       ))}
     </group>
   );
@@ -130,10 +238,193 @@ function Car({ p, c, ry = 0 }: { p: V3; c: string; ry?: number }) {
 function Bench({ p, ry = 0 }: { p: V3; ry?: number }) {
   return (
     <group position={p} rotation={[0, ry, 0]}>
-      <Bx p={[0, 0.18, 0]} s={[0.8, 0.05, 0.3]} c={TRUNK} />
-      <Bx p={[0, 0.38, -0.13]} s={[0.8, 0.26, 0.05]} c={TRUNK} />
+      <Bx p={[0, 0.18, 0]} s={[0.8, 0.05, 0.3]} c={PALM_TRUNK} />
+      <Bx p={[0, 0.38, -0.13]} s={[0.8, 0.26, 0.05]} c={PALM_TRUNK} />
       <Bx p={[-0.32, 0.09, 0]} s={[0.06, 0.18, 0.26]} c={STEELD} />
       <Bx p={[0.32, 0.09, 0]} s={[0.06, 0.18, 0.26]} c={STEELD} />
+    </group>
+  );
+}
+
+/** Animated pool water: gentle ripple shimmer strips drifting across. */
+function PoolWater({ w, d }: { w: number; d: number }) {
+  const shimmer = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime;
+    if (shimmer.current) {
+      shimmer.current.position.x = Math.sin(t * 0.6) * 0.35;
+      shimmer.current.position.z = Math.cos(t * 0.45) * 0.2;
+      shimmer.current.children.forEach((m, i) => {
+        const mat = (m as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        mat.opacity = 0.1 + 0.07 * Math.sin(t * 1.4 + i * 1.7);
+      });
+    }
+  });
+  return (
+    <group>
+      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[w, d]} />
+        <meshStandardMaterial color={WATER} roughness={0.08} metalness={0.15} transparent opacity={0.88} />
+      </mesh>
+      <group ref={shimmer}>
+        {[-0.9, 0.2, 1.1].map((z, i) => (
+          <mesh key={i} position={[0, 0.058, z * (d / 3.6)]} rotation={[-Math.PI / 2, 0, 0.12 * i]}>
+            <planeGeometry args={[w * 0.85, 0.1]} />
+            <meshStandardMaterial color="#dff6ff" transparent opacity={0.14} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+function Lounger({ p, ry = 0, c = "#cd7f54" }: { p: V3; ry?: number; c?: string }) {
+  return (
+    <group position={p} rotation={[0, ry, 0]}>
+      <Bx p={[0, 0.12, 0]} s={[0.7, 0.04, 0.26]} c="#f3efe4" />
+      <Bx p={[-0.28, 0.25, 0]} s={[0.3, 0.04, 0.26]} c="#f3efe4" rz={0.7} />
+      <Bx p={[0.04, 0.145, 0]} s={[0.56, 0.025, 0.22]} c={c} />
+      <Bx p={[-0.27, 0.26, 0]} s={[0.26, 0.025, 0.22]} c={c} rz={0.7} />
+      {([[-0.25, 0.1], [0.25, 0.1], [-0.25, -0.1], [0.25, -0.1]] as [number, number][]).map(([x, z], i) => (
+        <Bx key={i} p={[x, 0.05, z]} s={[0.04, 0.1, 0.04]} c={STEELD} />
+      ))}
+    </group>
+  );
+}
+
+function Umbrella({ p, c = "#e2654f" }: { p: V3; c?: string }) {
+  return (
+    <group position={p}>
+      <mesh position={[0, 0.55, 0]} castShadow>
+        <cylinderGeometry args={[0.02, 0.025, 1.1, 8]} />
+        <meshStandardMaterial color="#e9e3d4" roughness={0.7} />
+      </mesh>
+      <mesh position={[0, 1.08, 0]} castShadow>
+        <coneGeometry args={[0.62, 0.3, 10]} />
+        <meshStandardMaterial color={c} roughness={0.85} />
+      </mesh>
+    </group>
+  );
+}
+
+function Pool({ p }: { p: V3 }) {
+  return (
+    <group position={p}>
+      {/* timber deck */}
+      <Bx p={[0, 0.03, 0]} s={[10, 0.06, 6.4]} c={DECK} />
+      {Array.from({ length: 14 }, (_, i) => (
+        <Bx key={i} p={[-4.6 + i * 0.71, 0.062, 0]} s={[0.02, 0.004, 6.2]} c="#d3c5a6" />
+      ))}
+      {/* basin walls + white coping */}
+      <Bx p={[0, 0.06, -1.92]} s={[7.6, 0.1, 0.16]} c="#ffffff" />
+      <Bx p={[0, 0.06, 1.92]} s={[7.6, 0.1, 0.16]} c="#ffffff" />
+      <Bx p={[-3.72, 0.06, 0]} s={[0.16, 0.1, 4.0]} c="#ffffff" />
+      <Bx p={[3.72, 0.06, 0]} s={[0.16, 0.1, 4.0]} c="#ffffff" />
+      <PoolWater w={7.3} d={3.7} />
+      {/* entry steps */}
+      {[0, 1, 2].map((i) => (
+        <Bx key={i} p={[-3.3 + i * 0.22, 0.04 - i * 0.016, 1.3]} s={[0.22, 0.03, 1.0]} c="#cfe9f2" />
+      ))}
+      {/* ladder */}
+      <group position={[3.45, 0, -1.0]}>
+        <Bx p={[0, 0.25, -0.12]} s={[0.025, 0.5, 0.025]} c="#c2c9cf" />
+        <Bx p={[0, 0.25, 0.12]} s={[0.025, 0.5, 0.025]} c="#c2c9cf" />
+        {[0.12, 0.26, 0.4].map((y) => (
+          <Bx key={y} p={[0, y, 0]} s={[0.02, 0.02, 0.24]} c="#c2c9cf" />
+        ))}
+      </group>
+      {/* loungers + umbrellas along the far edge */}
+      <Lounger p={[-2.6, 0.06, 2.6]} ry={-1.5} c="#cd7f54" />
+      <Lounger p={[-1.5, 0.06, 2.6]} ry={-1.5} c="#8fa882" />
+      <Lounger p={[1.6, 0.06, 2.6]} ry={-1.5} c="#cd7f54" />
+      <Lounger p={[2.7, 0.06, 2.6]} ry={-1.5} c="#5b8fa8" />
+      <Umbrella p={[-2.0, 0.06, 2.85]} c={CANOPY[0]} />
+      <Umbrella p={[2.15, 0.06, 2.85]} c={CANOPY[1]} />
+      {/* kids' splash pool */}
+      <group position={[4.6, 0, 1.9]}>
+        <mesh position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[0.9, 24]} />
+          <meshStandardMaterial color="#5cc6e4" roughness={0.1} transparent opacity={0.9} />
+        </mesh>
+        <mesh position={[0, 0.04, 0]}>
+          <torusGeometry args={[0.92, 0.05, 8, 24]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.6} />
+        </mesh>
+      </group>
+      <Shrub p={[-4.7, 0.06, 2.7]} flower="#c75db4" seed={31} />
+      <Shrub p={[4.7, 0.06, -2.7]} flower="#e7e0d3" seed={32} />
+    </group>
+  );
+}
+
+function Treadmill({ p, ry = 0 }: { p: V3; ry?: number }) {
+  return (
+    <group position={p} rotation={[0, ry, 0]}>
+      <Bx p={[0, 0.06, 0]} s={[0.8, 0.06, 0.34]} c="#2b3138" />
+      <Bx p={[0, 0.085, 0]} s={[0.66, 0.015, 0.26]} c="#454f59" />
+      <Bx p={[0.36, 0.32, 0]} s={[0.05, 0.5, 0.3]} c={STEELD} rz={-0.15} />
+      <Bx p={[0.42, 0.58, 0]} s={[0.06, 0.16, 0.34]} c="#1d2126" rz={-0.3} />
+    </group>
+  );
+}
+
+function Gym({ p }: { p: V3 }) {
+  return (
+    <group position={p}>
+      <Bx p={[0, 0.05, 0]} s={[6.2, 0.1, 4.4]} c="#d9d4c6" />
+      {/* glass walls */}
+      <Bx p={[0, 0.65, -2.1]} s={[6.0, 1.1, 0.06]} c="#a8d8ea" opacity={0.35} />
+      <Bx p={[-2.95, 0.65, 0]} s={[0.06, 1.1, 4.2]} c="#a8d8ea" opacity={0.35} />
+      <Bx p={[2.95, 0.65, 0]} s={[0.06, 1.1, 4.2]} c="#a8d8ea" opacity={0.35} />
+      <Bx p={[-2.0, 0.65, 2.1]} s={[2.0, 1.1, 0.06]} c="#a8d8ea" opacity={0.35} />
+      <Bx p={[2.0, 0.65, 2.1]} s={[2.0, 1.1, 0.06]} c="#a8d8ea" opacity={0.35} />
+      {/* roof with dark fascia */}
+      <Bx p={[0, 1.26, 0]} s={[6.6, 0.12, 4.8]} c="#f0ece1" shadow />
+      <Bx p={[0, 1.2, 2.42]} s={[6.6, 0.18, 0.06]} c={STEELD} />
+      <Bx p={[0, 1.2, -2.42]} s={[6.6, 0.18, 0.06]} c={STEELD} />
+      {/* equipment */}
+      <Treadmill p={[-2.0, 0.1, -1.3]} ry={Math.PI / 2} />
+      <Treadmill p={[-1.1, 0.1, -1.3]} ry={Math.PI / 2} />
+      <Treadmill p={[-0.2, 0.1, -1.3]} ry={Math.PI / 2} />
+      {/* bench press */}
+      <group position={[1.6, 0.1, -1.2]}>
+        <Bx p={[0, 0.16, 0]} s={[0.7, 0.06, 0.24]} c="#8c2f2f" />
+        <Bx p={[-0.28, 0.08, 0]} s={[0.06, 0.16, 0.2]} c={STEELD} />
+        <Bx p={[0.28, 0.08, 0]} s={[0.06, 0.16, 0.2]} c={STEELD} />
+        <Bx p={[0, 0.46, 0]} s={[0.025, 0.025, 0.9]} c="#9aa3ab" />
+        {[0.38, -0.38].map((z) => (
+          <mesh key={z} position={[0, 0.46, z]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.09, 0.09, 0.04, 14]} />
+            <meshStandardMaterial color="#2b3138" roughness={0.7} />
+          </mesh>
+        ))}
+        <Bx p={[0, 0.3, 0.42]} s={[0.05, 0.34, 0.05]} c={STEELD} />
+        <Bx p={[0, 0.3, -0.42]} s={[0.05, 0.34, 0.05]} c={STEELD} />
+      </group>
+      {/* dumbbell rack */}
+      <group position={[2.4, 0.1, 0.9]}>
+        <Bx p={[0, 0.2, 0]} s={[0.24, 0.4, 1.2]} c={STEELD} />
+        {[-0.4, -0.13, 0.13, 0.4].map((z, i) => (
+          <mesh key={i} position={[0, 0.44, z]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.045, 0.045, 0.2, 10]} />
+            <meshStandardMaterial color={i % 2 ? "#c23b3b" : "#2e6bb0"} roughness={0.6} />
+          </mesh>
+        ))}
+      </group>
+      {/* yoga corner */}
+      {[-0.5, -0.1].map((z, i) => (
+        <mesh key={i} position={[-2.4, 0.14, z + 1.4]} rotation={[0, 0.4, Math.PI / 2]}>
+          <cylinderGeometry args={[0.05, 0.05, 0.5, 10]} />
+          <meshStandardMaterial color={i ? "#8fa882" : "#cd7f54"} roughness={0.9} />
+        </mesh>
+      ))}
+      {/* sign */}
+      <Bx p={[0, 1.05, 2.14]} s={[1.6, 0.26, 0.04]} c="#1f2937" />
+      <Html position={[0, 1.05, 2.2]} center distanceFactor={12} zIndexRange={[24, 0]}>
+        <p className="pointer-events-none select-none text-[9px] font-bold tracking-[0.2em] text-amber-100">
+          FITNESS STUDIO
+        </p>
+      </Html>
     </group>
   );
 }
@@ -141,19 +432,16 @@ function Bench({ p, ry = 0 }: { p: V3; ry?: number }) {
 function Playground() {
   return (
     <group position={[13, 0, 13]}>
-      {/* rubber safety surface */}
       <mesh position={[0, 0.015, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <circleGeometry args={[4.4, 36]} />
+        <circleGeometry args={[4.4, 40]} />
         <meshStandardMaterial color={PAD_BLUE} roughness={1} />
       </mesh>
       <mesh position={[1.4, 0.022, 1.0]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[1.6, 28]} />
+        <circleGeometry args={[1.6, 30]} />
         <meshStandardMaterial color={PAD_SAND} roughness={1} />
       </mesh>
-
-      {/* play tower with blue roof + slide */}
       <group position={[-1.6, 0, -1.3]}>
-        {[[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]].map(([x, z], i) => (
+        {([[-0.35, -0.35], [0.35, -0.35], [-0.35, 0.35], [0.35, 0.35]] as [number, number][]).map(([x, z], i) => (
           <Bx key={i} p={[x, 0.35, z]} s={[0.07, 0.7, 0.07]} c={PLAY_RED} />
         ))}
         <Bx p={[0, 0.72, 0]} s={[0.85, 0.06, 0.85]} c={PLAY_YELLOW} />
@@ -164,8 +452,6 @@ function Playground() {
         <Bx p={[0.95, 0.42, 0.2]} s={[1.5, 0.04, 0.4]} c={PLAY_YELLOW} rz={-0.5} shadow />
         <Bx p={[1.62, 0.08, 0.2]} s={[0.5, 0.05, 0.44]} c={PLAY_YELLOW} />
       </group>
-
-      {/* swing set */}
       <group position={[1.6, 0, -1.6]}>
         <Bx p={[-1.0, 0.45, 0]} s={[0.06, 0.95, 0.06]} c={PLAY_RED} rz={0.2} />
         <Bx p={[-0.8, 0.45, 0]} s={[0.06, 0.95, 0.06]} c={PLAY_RED} rz={-0.2} />
@@ -180,11 +466,9 @@ function Playground() {
           </group>
         ))}
       </group>
-
-      {/* merry-go-round */}
       <group position={[-0.6, 0, 1.7]}>
         <mesh position={[0, 0.12, 0]} castShadow>
-          <cylinderGeometry args={[0.55, 0.55, 0.06, 16]} />
+          <cylinderGeometry args={[0.55, 0.55, 0.06, 18]} />
           <meshStandardMaterial color={PLAY_YELLOW} roughness={0.8} />
         </mesh>
         <Bx p={[0, 0.3, 0]} s={[0.05, 0.35, 0.05]} c={PLAY_RED} />
@@ -192,14 +476,10 @@ function Playground() {
           <Bx key={a} p={[Math.cos(a) * 0.3, 0.32, Math.sin(a) * 0.3]} s={[0.04, 0.3, 0.04]} c={PLAY_RED} ry={a} />
         ))}
       </group>
-
-      {/* seesaw */}
       <group position={[2.3, 0, 1.2]}>
         <Bx p={[0, 0.16, 0]} s={[0.12, 0.32, 0.2]} c={PLAY_RED} />
         <Bx p={[0, 0.32, 0]} s={[1.8, 0.05, 0.22]} c={PLAY_YELLOW} rz={0.18} shadow />
       </group>
-
-      {/* spring rider */}
       <group position={[0.6, 0, 0.4]}>
         <mesh position={[0, 0.12, 0]}>
           <cylinderGeometry args={[0.05, 0.07, 0.22, 8]} />
@@ -274,7 +554,6 @@ export default function Site() {
       ))}
       <Bx p={[-1.86, 0.04, 20]} s={[0.16, 0.07, 12.5]} c={KERB} />
       <Bx p={[1.86, 0.04, 20]} s={[0.16, 0.07, 12.5]} c={KERB} />
-      {/* crosswalk outside the gate */}
       {[-1.2, -0.6, 0, 0.6, 1.2].map((x) => (
         <Bx key={x} p={[x, 0.026, 27.3]} s={[0.4, 0.005, 1.1]} c="#eceae2" />
       ))}
@@ -301,7 +580,6 @@ export default function Site() {
             <p className="text-[11px] font-bold tracking-[0.25em] text-amber-100 drop-shadow">MAHARACK HEIGHTS</p>
           </div>
         </Html>
-        {/* open gate leaves */}
         <group position={[-1.95, 0, 0]} rotation={[0, -0.95, 0]}>
           <Bx p={[0.85, 0.6, 0]} s={[1.7, 1.1, 0.06]} c={STEELD} />
           <Bx p={[0.85, 0.62, 0.04]} s={[1.5, 0.9, 0.02]} c="#5b6a78" />
@@ -310,7 +588,6 @@ export default function Site() {
           <Bx p={[-0.85, 0.6, 0]} s={[1.7, 1.1, 0.06]} c={STEELD} />
           <Bx p={[-0.85, 0.62, 0.04]} s={[1.5, 0.9, 0.02]} c="#5b6a78" />
         </group>
-        {/* guard cabin */}
         <group position={[3.8, 0, -0.7]}>
           <Bx p={[0, 0.48, 0]} s={[1.1, 0.96, 1.0]} c="#e9e3d4" shadow />
           <Bx p={[0, 0.62, 0.51]} s={[0.7, 0.4, 0.02]} c="#3d4a57" />
@@ -318,13 +595,27 @@ export default function Site() {
         </group>
       </group>
 
-      {/* ---- landscaping ---- */}
+      {/* ---- amenities ---- */}
+      <Pool p={[-13, 0, 10]} />
+      <Gym p={[-16, 0, -5]} />
+      <Playground />
+      <Bench p={[9.0, 0, 11.4]} ry={0.8} />
+      <Bench p={[17.6, 0, 13.6]} ry={-0.9} />
+      <Bench p={[-7.5, 0, 5.5]} ry={2.2} />
+
+      {/* ---- landscaping: palms along the drive, broadleaf trees around ---- */}
       {([
         [-4.8, 16], [4.8, 16], [-4.8, 19.5], [4.8, 19.5], [-4.8, 23], [4.8, 23],
-        [9.5, 13.5], [17, 16.2], [17.5, 10], [-20, 22], [20, 23], [-21, -14],
-        [21, -14], [-15, 18.5], [-12, -15.5], [12, -15.5],
+        [9.5, 13.5], [17, 16.2], [17.5, 10], [-20, 22], [20, 23],
+        [-7.6, 12.5], [-19.5, 14.5], [-7, 8],
       ] as [number, number][]).map(([x, z], i) => (
-        <Palm key={i} p={[x, 0, z]} h={1.7 + ((i * 7) % 5) * 0.14} />
+        <Palm key={i} p={[x, 0, z]} h={1.7 + ((i * 7) % 5) * 0.14} seed={i + 1} />
+      ))}
+      {([
+        [-21, -14], [21, -14], [-15, 18.5], [-12, -15.5], [12, -15.5], [18, -10],
+        [-21, 2], [21, 6], [16, -2], [-20.5, -7], [8, -14], [-4, -15],
+      ] as [number, number][]).map(([x, z], i) => (
+        <Tree key={i} p={[x, 0, z]} scale={1 + ((i * 3) % 4) * 0.18} seed={i + 21} />
       ))}
       {([
         [-21.5, 24.8, "#c75db4"], [-17.5, 24.8, "#e7e0d3"], [-13.5, 24.8, "#c75db4"],
@@ -333,7 +624,7 @@ export default function Site() {
         [21.5, 24.8, "#e7e0d3"], [-23.2, 12, "#c75db4"], [-23.2, 2, "#e7e0d3"],
         [23.2, 6, "#c75db4"], [23.2, -4, "#d98a4a"], [8.3, 9.3, "#c75db4"], [18, 13.4, "#e7e0d3"],
       ] as [number, number, string][]).map(([x, z, c], i) => (
-        <Shrub key={i} p={[x, 0, z]} flower={c} />
+        <Shrub key={i} p={[x, 0, z]} flower={c} seed={i + 41} />
       ))}
       {([[-2.6, 16.5], [2.6, 16.5], [-2.6, 20.5], [2.6, 20.5], [-2.6, 24.5], [2.6, 24.5]] as [number, number][]).map(
         ([x, z], i) => (
@@ -350,15 +641,13 @@ export default function Site() {
       <Car p={[-6.2, 0, 20.4]} c="#3b4a5f" ry={0} />
       <Car p={[1.05, 0, 30.5]} c="#7c2f3e" ry={Math.PI / 2} />
 
-      <Playground />
-      <Bench p={[9.0, 0, 11.4]} ry={0.8} />
-      <Bench p={[17.6, 0, 13.6]} ry={-0.9} />
-
       {/* ---- amenity hover labels ---- */}
+      <SiteZone p={[-13, 0, 10]} s={[10.4, 1.2, 6.8]} name="Swimming Pool" detail={'60\' × 30\' deck pool · kids\' splash pool'} active={hover === "Swimming Pool"} onHover={setHover} />
+      <SiteZone p={[-16, 0, -5]} s={[6.8, 1.6, 5]} name="Residents' Gym" detail="Cardio deck · free weights · yoga corner" active={hover === "Residents' Gym"} onHover={setHover} />
       <SiteZone p={[13, 0, 13]} s={[9, 1.4, 9]} name="Children's Playground" detail={'55\' × 55\' · rubber-padded play court'} active={hover === "Children's Playground"} onHover={setHover} />
       <SiteZone p={[0, 0, 26.2]} s={[6, 2.4, 2.2]} name="Main Entrance Gate" detail="24×7 security · guard cabin" active={hover === "Main Entrance Gate"} onHover={setHover} />
       <SiteZone p={[-6.2, 0, 21.5]} s={[4.6, 1.2, 6.6]} name="Visitor Parking" detail="6 covered bays" active={hover === "Visitor Parking"} onHover={setHover} />
-      <SiteZone p={[-14, 0, 8]} s={[10, 0.8, 12]} name="Landscaped Garden" detail="Palm court · flowering shrubs" active={hover === "Landscaped Garden"} onHover={setHover} />
+      <SiteZone p={[14, 0, -8]} s={[12, 0.8, 10]} name="Landscaped Garden" detail="Native trees · flowering shrubs" active={hover === "Landscaped Garden"} onHover={setHover} />
     </group>
   );
 }

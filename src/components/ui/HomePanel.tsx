@@ -7,7 +7,11 @@ import { AVAILABILITY_COLOR, AVAILABILITY_LABEL } from "@/lib/layout";
 import { track } from "@/lib/client";
 import FloorPlanSVG from "./FloorPlanSVG";
 
-type ModalKind = "plan" | "interiors" | "request" | null;
+type ModalKind = "plan" | "interiors" | "request" | "reserve" | null;
+
+const FEE = 30000;
+const GST = Math.round(FEE * 0.18);
+const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
@@ -50,16 +54,50 @@ export default function HomePanel({
 }) {
   const [modal, setModal] = useState<ModalKind>(null);
   const [requested, setRequested] = useState(false);
+  const [reserveState, setReserveState] = useState<
+    | { step: "review" }
+    | { step: "paying" }
+    | { step: "done"; reference: string }
+    | { step: "error"; message: string }
+  >({ step: "review" });
 
   const open = (kind: Exclude<ModalKind, null>) => {
     if (!home) return;
     setModal(kind);
     track({
-      type: kind === "plan" ? "floor-plan-viewed" : kind === "interiors" ? "interiors-viewed" : "details-requested",
+      type:
+        kind === "plan"
+          ? "floor-plan-viewed"
+          : kind === "interiors"
+            ? "interiors-viewed"
+            : kind === "reserve"
+              ? "reserve-opened"
+              : "details-requested",
       floorId: home.floorId,
       homeId: home.id,
     });
     if (kind === "request") setRequested(true);
+    if (kind === "reserve") setReserveState({ step: "review" });
+  };
+
+  const payReservation = async () => {
+    if (!home) return;
+    setReserveState({ step: "paying" });
+    track({ type: "reserve-submitted", floorId: home.floorId, homeId: home.id });
+    try {
+      const res = await fetch("/api/reserve", {
+        method: "POST",
+        body: JSON.stringify({ homeId: home.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setReserveState({ step: "error", message: data.error ?? "Reservation failed" });
+      } else {
+        setReserveState({ step: "done", reference: data.reference });
+      }
+    } catch {
+      setReserveState({ step: "error", message: "Network error — please try again" });
+    }
   };
 
   return (
@@ -129,6 +167,14 @@ export default function HomePanel({
                     </div>
                   </dl>
                   <div className="mt-4 grid grid-cols-1 gap-2">
+                    {home.availability === "available" && (
+                      <button
+                        onClick={() => open("reserve")}
+                        className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500"
+                      >
+                        Reserve · {inr(FEE)} + taxes
+                      </button>
+                    )}
                     <button
                       onClick={() => open("plan")}
                       className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
@@ -189,6 +235,60 @@ export default function HomePanel({
               <p className="text-sm text-slate-500">
                 Interior photography for this residence has not been published yet.
               </p>
+            )}
+          </Modal>
+        )}
+        {modal === "reserve" && home && (
+          <Modal title={`Reserve ${home.label}`} onClose={() => setModal(null)}>
+            {reserveState.step === "done" ? (
+              <div className="text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100">
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                    <path d="M4 11.5l5 5L18 6.5" stroke="#059669" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <p className="mt-3 text-sm font-semibold text-slate-900">Reservation recorded</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Reference <span className="font-mono font-semibold">{reserveState.reference}</span>.
+                  The sales desk will contact you to complete the secure payment of {inr(FEE + GST)}.
+                  Your reservation fee is <strong>fully refundable</strong>.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-slate-600">
+                  Reserve <strong>{home.label}</strong> ({home.configuration}) by paying a token
+                  reservation fee. The fee is <strong>fully refundable</strong> if you choose not
+                  to proceed.
+                </p>
+                <dl className="mt-4 space-y-1.5 rounded-xl bg-slate-50 p-4 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-slate-500">Reservation fee</dt>
+                    <dd className="font-medium text-slate-800">{inr(FEE)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-slate-500">GST (18%)</dt>
+                    <dd className="font-medium text-slate-800">{inr(GST)}</dd>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 pt-1.5">
+                    <dt className="font-semibold text-slate-800">Total payable</dt>
+                    <dd className="font-bold text-slate-900">{inr(FEE + GST)}</dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-xs text-slate-500">
+                  100% refundable · no questions asked · holds this home for 30 days
+                </p>
+                {reserveState.step === "error" && (
+                  <p className="mt-2 text-sm text-red-600">{reserveState.message}</p>
+                )}
+                <button
+                  onClick={payReservation}
+                  disabled={reserveState.step === "paying"}
+                  className="mt-4 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-60"
+                >
+                  {reserveState.step === "paying" ? "Processing…" : `Pay ${inr(FEE + GST)} & Reserve`}
+                </button>
+              </>
             )}
           </Modal>
         )}

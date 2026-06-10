@@ -52,7 +52,9 @@ export type AnalyticsEvent = {
     | "home-selected"
     | "floor-plan-viewed"
     | "interiors-viewed"
-    | "details-requested";
+    | "details-requested"
+    | "reserve-opened"
+    | "reserve-submitted";
   floorId?: string;
   homeId?: string;
 };

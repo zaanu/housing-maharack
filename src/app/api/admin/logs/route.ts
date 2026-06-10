@@ -9,5 +9,6 @@ export async function GET() {
   return NextResponse.json({
     analytics: readLogTail("analytics.jsonl"),
     errors: readLogTail("errors.jsonl", 100),
+    reservations: readLogTail("reservations.jsonl", 200),
   });
 }
