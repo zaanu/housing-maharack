@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CameraControls } from "@react-three/drei";
 import type CameraControlsImpl from "camera-controls";
 import type { PublicFloor, PublicHome } from "@/lib/types";
@@ -11,6 +11,9 @@ import Tower from "./Tower";
 function CameraRig({ selectedFloorNumber }: { selectedFloorNumber: number | null }) {
   const controls = useRef<CameraControlsImpl | null>(null);
   const interacted = useRef(false);
+  const aspect = useThree((s) => s.viewport.aspect);
+  // portrait screens need more distance so the whole floor/building fits
+  const zoomOut = aspect < 0.9 ? 1.55 : 1;
 
   useEffect(() => {
     const c = controls.current;
@@ -25,13 +28,13 @@ function CameraRig({ selectedFloorNumber }: { selectedFloorNumber: number | null
     if (!c) return;
     if (selectedFloorNumber == null) {
       // full exterior view
-      c.setLookAt(21, 16, 23, 0, 7.5, 0, true);
+      c.setLookAt(21 * zoomOut, 16 * zoomOut, 23 * zoomOut, 0, 7.5, 0, true);
     } else {
       // slightly tilted top-down view of the selected floor
       const y = floorY(selectedFloorNumber);
-      c.setLookAt(9.5, y + 11.5, 10.5, 0, y + 0.2, 0, true);
+      c.setLookAt(9.5 * zoomOut, y + 11.5 * zoomOut, 10.5 * zoomOut, 0, y + 0.2, 0, true);
     }
-  }, [selectedFloorNumber]);
+  }, [selectedFloorNumber, zoomOut]);
 
   useFrame((_, delta) => {
     // gentle idle rotation in the exterior view until the user takes over
