@@ -5,7 +5,8 @@
 // terracotta/sage accents, glowing pendants, plants. All primitives, so it
 // costs nothing to load and works until real GLB interiors are supplied.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Html } from "@react-three/drei";
 
 // palette
 const WALL = "#f7f3ea";
@@ -27,6 +28,79 @@ const GLASS = "#bcd6e2";
 const BOOKS = ["#c96f4a", "#5b7d99", "#88a06b", "#d8b45a", "#9c6b8f"];
 
 type V3 = [number, number, number];
+
+// 1 scene unit ≈ 6 ft (a 7.2 × 4.2 unit ≈ 43' × 25' ≈ 1,100 sq. ft. carpet)
+const FT_PER_UNIT = 6;
+
+function ftDim(su: number): string {
+  const ft = su * FT_PER_UNIT;
+  let whole = Math.floor(ft);
+  let inches = Math.round((ft - whole) * 12);
+  if (inches === 12) {
+    whole += 1;
+    inches = 0;
+  }
+  return inches === 0 ? `${whole}'0"` : `${whole}'${inches}"`;
+}
+
+export type RoomHover = { name: string; dims: string; x: number; z: number; tipY: number };
+
+type ZoneDef = { name: string; x: number; z: number; w: number; d: number; y0?: number; h?: number };
+
+/** Invisible room-sized hover/click target. Nearest zone wins via stopPropagation. */
+function RoomZone({
+  zone,
+  M,
+  onSelect,
+  onHover,
+}: {
+  zone: ZoneDef;
+  M: (x: number, y: number, z: number) => V3;
+  onSelect: () => void;
+  onHover: (r: RoomHover | null) => void;
+}) {
+  const { name, x, z, w, d, y0 = 0, h = 0.5 } = zone;
+  const center = M(x, 0, z);
+  return (
+    <mesh
+      position={[center[0], y0 + h / 2 + 0.02, center[2]]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "pointer";
+        onHover({
+          name,
+          dims: `${ftDim(w)} × ${ftDim(d)}`,
+          x: center[0],
+          z: center[2],
+          tipY: y0 + h + 0.42,
+        });
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = "auto";
+        onHover(null);
+      }}
+    >
+      <boxGeometry args={[w, h, d]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
+function RoomTip({ hover }: { hover: RoomHover | null }) {
+  if (!hover) return null;
+  return (
+    <Html position={[hover.x, hover.tipY, hover.z]} center distanceFactor={9} zIndexRange={[40, 0]}>
+      <div className="pointer-events-none select-none whitespace-nowrap rounded-lg bg-slate-900/90 px-2.5 py-1 text-center shadow-lg backdrop-blur">
+        <p className="text-[11px] font-semibold leading-tight text-white">{hover.name}</p>
+        <p className="text-[9.5px] leading-tight text-amber-200">{hover.dims}</p>
+      </div>
+    </Html>
+  );
+}
 
 function B({ p, s, c, glow = 0 }: { p: V3; s: V3; c: string; glow?: number }) {
   return (
@@ -342,14 +416,38 @@ export default function UnitInterior({
   bedrooms,
   sx,
   sz,
+  onSelect,
+  onHoverChange,
 }: {
   bedrooms: number;
   sx: 1 | -1;
   sz: 1 | -1;
+  onSelect: () => void;
+  onHoverChange: (hovered: boolean) => void;
 }) {
   const M = (x: number, y: number, z: number): V3 => [x * sx, y, z * sz];
   const wallH = 0.55;
   const t = 0.07;
+  const [hover, setHover] = useState<RoomHover | null>(null);
+  const onHover = (r: RoomHover | null) => {
+    setHover(r);
+    onHoverChange(r !== null);
+  };
+
+  const zones: ZoneDef[] = [
+    { name: "Living Room", x: 1.35, z: 1.02, w: 4.2, d: 1.85 },
+    { name: bedrooms >= 3 ? "Master Bedroom" : "Bedroom", x: -2.1, z: 1.02, w: 2.7, d: 1.85 },
+    {
+      name: bedrooms >= 2 ? "Bedroom 2" : "Dressing Room",
+      x: -2.7,
+      z: -0.92,
+      w: 1.5,
+      d: 2.05,
+    },
+    { name: "Bathroom", x: -1.35, z: -1.2, w: 1.2, d: 1.45 },
+    { name: "Kitchen", x: 2.0, z: -1.2, w: 2.9, d: 1.5 },
+    { name: "Dining", x: -0.1, z: -1.2, w: 1.3, d: 1.5 },
+  ];
 
   const wall = (x: number, z: number, w: number, d: number, h = wallH, c = WALL): ReactNode => (
     <B p={M(x, h / 2, z)} s={[w, h, d]} c={c} />
@@ -439,6 +537,18 @@ export default function UnitInterior({
 
       {/* study corner for larger configurations */}
       {bedrooms >= 3 && <Desk p={M(2.5, 0, 1.45)} />}
+
+      {/* room hover/click zones + fallback covering the whole unit */}
+      {zones.map((zone) => (
+        <RoomZone key={zone.name} zone={zone} M={M} onSelect={onSelect} onHover={onHover} />
+      ))}
+      <RoomZone
+        zone={{ name: "Hallway", x: 0, z: 0, w: 6.9, d: 3.9, h: 0.14 }}
+        M={M}
+        onSelect={onSelect}
+        onHover={onHover}
+      />
+      <RoomTip hover={hover} />
     </group>
   );
 }
@@ -449,12 +559,37 @@ export default function UnitInterior({
  * Canonical: outer facade at -x; `sx` mirrors for the opposite unit.
  * Interior spans x ∈ [-3.45, 3.45], z ∈ [-4.05, 4.05]; each level ≈ 1.0 high.
  */
-export function PenthouseInterior({ sx }: { sx: 1 | -1 }) {
+export function PenthouseInterior({
+  sx,
+  onSelect,
+  onHoverChange,
+}: {
+  sx: 1 | -1;
+  onSelect: () => void;
+  onHoverChange: (hovered: boolean) => void;
+}) {
   const M = (x: number, y: number, z: number): V3 => [x * sx, y, z];
   const t = 0.07;
   const lowH = 0.97;
   const upY = 1.07; // top of the mid slab
   const upH = 0.93;
+  const [hover, setHover] = useState<RoomHover | null>(null);
+  const onHover = (r: RoomHover | null) => {
+    setHover(r);
+    onHoverChange(r !== null);
+  };
+
+  const zones: ZoneDef[] = [
+    { name: "Double-Height Living", x: -0.6, z: 2.825, w: 5.7, d: 2.45, h: 0.8 },
+    { name: "Family Lounge", x: -1.225, z: -0.2, w: 4.45, d: 2.8 },
+    { name: "Kitchen", x: 0.7, z: -3.0, w: 3.8, d: 2.05 },
+    { name: "Dining", x: 2.225, z: -1.15, w: 2.45, d: 1.7 },
+    { name: "Foyer", x: -2.325, z: -3.0, w: 2.25, d: 2.05 },
+    { name: "Staircase", x: 2.85, z: 0, w: 1.2, d: 3.2, h: 0.9 },
+    { name: "Master Bedroom", x: -1.625, z: -2.825, w: 3.65, d: 2.45, y0: upY },
+    { name: "Bedroom 2", x: 1.825, z: -2.825, w: 3.25, d: 2.45, y0: upY },
+    { name: "Loft Study", x: -0.6, z: 0, w: 5.7, d: 3.2, y0: upY },
+  ];
 
   const steps = [];
   for (let i = 0; i < 10; i++) {
@@ -555,6 +690,18 @@ export function PenthouseInterior({ sx }: { sx: 1 | -1 }) {
         <Plant p={M(1.7, 0, 1.1)} big />
         <Plant p={M(3.1, 0, -1.0)} />
       </group>
+
+      {/* room hover/click zones + full-unit fallback */}
+      {zones.map((zone) => (
+        <RoomZone key={zone.name} zone={zone} M={M} onSelect={onSelect} onHover={onHover} />
+      ))}
+      <RoomZone
+        zone={{ name: "Penthouse", x: 0, z: 0, w: 6.9, d: 8.1, h: 0.12 }}
+        M={M}
+        onSelect={onSelect}
+        onHover={onHover}
+      />
+      <RoomTip hover={hover} />
     </group>
   );
 }

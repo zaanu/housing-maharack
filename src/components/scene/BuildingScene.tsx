@@ -29,22 +29,40 @@ function CameraRig({
       : -1;
   const focus = idx >= 0 ? (pent ? penthouseRect(idx) : unitRect(idx)) : null;
 
+  const intro = useRef(true);
+
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
-    const onStart = () => (interacted.current = true);
+    const onStart = () => {
+      interacted.current = true;
+      intro.current = false;
+    };
     c.addEventListener("controlstart", onStart);
-    return () => c.removeEventListener("controlstart", onStart);
+    // cinematic opening: street level at the main gate, then rise to the aerial view
+    c.setLookAt(1.5, 1.7, 36, 0, 4.5, 0, false);
+    const t = setTimeout(() => {
+      if (intro.current && c) {
+        c.setLookAt(27 * zoomOut, 21 * zoomOut, 31 * zoomOut, 0, 5.5, 2, true);
+      }
+      intro.current = false;
+    }, 2200);
+    return () => {
+      clearTimeout(t);
+      c.removeEventListener("controlstart", onStart);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
     if (n == null) {
-      // full exterior view
-      c.setLookAt(21 * zoomOut, 16 * zoomOut, 23 * zoomOut, 0, 7.5, 0, true);
+      // full exterior view (skip during the intro sweep)
+      if (!intro.current) c.setLookAt(27 * zoomOut, 21 * zoomOut, 31 * zoomOut, 0, 5.5, 2, true);
       return;
     }
+    intro.current = false;
     const y = floorY(n);
     if (pent) {
       // the duplex section is wide — portrait screens need much more distance

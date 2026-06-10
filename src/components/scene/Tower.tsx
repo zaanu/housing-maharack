@@ -7,6 +7,7 @@ import * as THREE from "three";
 import type { PublicFloor, PublicHome } from "@/lib/types";
 import { TOWER, unitRect, penthouseRect, floorY, AVAILABILITY_COLOR } from "@/lib/layout";
 import UnitInterior, { PenthouseInterior } from "./Interior";
+import Site from "./Site";
 
 type FloorMode = "normal" | "context" | "open" | "above";
 
@@ -57,42 +58,6 @@ function HomeLabel({
   );
 }
 
-/** Invisible full-unit click target so furniture never blocks selection. */
-function HitBox({
-  home,
-  size,
-  onSelect,
-  setHovered,
-}: {
-  home: PublicHome;
-  size: [number, number, number];
-  onSelect: (home: PublicHome) => void;
-  setHovered: (v: boolean) => void;
-}) {
-  return (
-    <mesh
-      name={home.meshIds[0] ?? home.id}
-      position={[0, size[1] / 2, 0]}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(home);
-      }}
-      onPointerOver={(e) => {
-        e.stopPropagation();
-        setHovered(true);
-        document.body.style.cursor = "pointer";
-      }}
-      onPointerOut={() => {
-        setHovered(false);
-        document.body.style.cursor = "auto";
-      }}
-    >
-      <boxGeometry args={size} />
-      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-    </mesh>
-  );
-}
-
 function UnitHome({
   home,
   index,
@@ -127,9 +92,14 @@ function UnitHome({
         <meshStandardMaterial color="#d9b985" roughness={0.9} />
       </mesh>
       <group position={[0, 0.067, 0]}>
-        <UnitInterior bedrooms={bedroomsOf(home)} sx={sx} sz={sz} />
+        <UnitInterior
+          bedrooms={bedroomsOf(home)}
+          sx={sx}
+          sz={sz}
+          onSelect={() => onSelect(home)}
+          onHoverChange={setHovered}
+        />
       </group>
-      <HitBox home={home} size={[rect.w - 0.15, 0.85, rect.d - 0.15]} onSelect={onSelect} setHovered={setHovered} />
       <HomeLabel home={home} y={1.15} selected={selected} />
     </group>
   );
@@ -166,9 +136,8 @@ function PenthouseHome({
         <meshStandardMaterial color="#d9b985" roughness={0.95} />
       </mesh>
       <group position={[0, 0.067, 0]}>
-        <PenthouseInterior sx={sx} />
+        <PenthouseInterior sx={sx} onSelect={() => onSelect(home)} onHoverChange={setHovered} />
       </group>
-      <HitBox home={home} size={[rect.w - 0.15, 2.15, rect.d - 0.15]} onSelect={onSelect} setHovered={setHovered} />
       <HomeLabel home={home} y={2.45} selected={selected} />
     </group>
   );
@@ -369,16 +338,17 @@ export default function Tower({
   const roofBase = Math.max(...floors.map((f) => f.number + (f.penthouse ? 2 : 1)), 2);
   return (
     <group>
-      {/* ground */}
+      {/* lawn */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[55, 64]} />
-        <meshStandardMaterial color="#d4dfd2" roughness={1} />
+        <meshStandardMaterial color="#8fb878" roughness={1} />
       </mesh>
-      {/* plaza */}
+      {/* paved plaza around the tower */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
-        <circleGeometry args={[16, 48]} />
-        <meshStandardMaterial color="#cdc7b8" roughness={1} />
+        <circleGeometry args={[14, 48]} />
+        <meshStandardMaterial color="#cfc9ba" roughness={1} />
       </mesh>
+      <Site />
       {/* podium */}
       <mesh position={[0, TOWER.podiumHeight / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[TOWER.width + 2, TOWER.podiumHeight, TOWER.depth + 2]} />
