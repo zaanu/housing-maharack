@@ -155,7 +155,15 @@ export default function Experience() {
               {previewMode && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">PREVIEW</span>}
             </p>
           </div>
-          <Legend />
+          <div className="flex flex-col items-end gap-2">
+            <Legend />
+            <a
+              href="/vastu-heights"
+              className="pointer-events-auto rounded-full bg-[#2A2420]/90 px-3.5 py-1.5 text-[11px] font-semibold text-amber-200 shadow backdrop-blur hover:bg-[#2A2420] hover:text-amber-100 transition-colors"
+            >
+              Vastu Heights →
+            </a>
+          </div>
         </div>
         <nav className="hidden md:block">
           <ol className="pointer-events-auto inline-flex items-center gap-1 rounded-full bg-white/85 px-3.5 py-1.5 text-[11px] shadow backdrop-blur">
