@@ -47,12 +47,14 @@ function CameraRig({
     }
     const y = floorY(n);
     if (pent) {
+      // the duplex section is wide — portrait screens need much more distance
+      const pf = aspect < 0.9 ? 2.3 : 1;
       if (focus) {
         // frontal duplex section of one penthouse
         c.setLookAt(
           focus.x * 0.85 + (focus.x < 0 ? -1.2 : 1.2),
-          y + 2.9 * zoomOut,
-          10.5 * zoomOut,
+          y + 2.9 + 1.4 * (pf - 1),
+          10.5 * (aspect < 0.9 ? 1.8 : 1),
           focus.x * 0.85,
           y + 1.05,
           0.4,
@@ -60,7 +62,7 @@ function CameraRig({
         );
       } else {
         // both penthouses, dollhouse section view
-        c.setLookAt(4.5, y + (3.4 + 1.6 * (zoomOut - 1)), 16.5 * zoomOut, 0, y + 1.15, 0, true);
+        c.setLookAt(4.5, y + 3.4 + 2.2 * (pf - 1), 16.5 * pf, 0, y + 1.15, 0, true);
       }
       return;
     }
@@ -81,7 +83,7 @@ function CameraRig({
       // slightly tilted top-down view of the selected floor
       c.setLookAt(9.5 * zoomOut, y + 11.5 * zoomOut, 10.5 * zoomOut, 0, y + 0.2, 0, true);
     }
-  }, [n, pent, focus?.x, focus?.z, zoomOut]);
+  }, [n, pent, focus?.x, focus?.z, zoomOut, aspect]);
 
   useFrame((_, delta) => {
     // gentle idle rotation in the exterior view until the user takes over
