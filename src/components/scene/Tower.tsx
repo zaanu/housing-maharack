@@ -124,7 +124,7 @@ function UnitHome({
       {/* wood floor */}
       <mesh position={[0, 0.052, 0]} receiveShadow>
         <boxGeometry args={[rect.w - 0.3, 0.03, rect.d - 0.3]} />
-        <meshStandardMaterial color="#dcc9a3" roughness={0.9} />
+        <meshStandardMaterial color="#d9b985" roughness={0.9} />
       </mesh>
       <group position={[0, 0.067, 0]}>
         <UnitInterior bedrooms={bedroomsOf(home)} sx={sx} sz={sz} />
@@ -163,7 +163,7 @@ function PenthouseHome({
       </mesh>
       <mesh position={[0, 0.052, 0]} receiveShadow>
         <boxGeometry args={[rect.w - 0.3, 0.03, rect.d - 0.3]} />
-        <meshStandardMaterial color="#e2e0da" roughness={0.95} />
+        <meshStandardMaterial color="#d9b985" roughness={0.95} />
       </mesh>
       <group position={[0, 0.067, 0]}>
         <PenthouseInterior sx={sx} />

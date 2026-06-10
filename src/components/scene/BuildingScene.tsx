@@ -132,10 +132,12 @@ export default function BuildingScene({
     >
       <color attach="background" args={["#dfeaf2"]} />
       <fog attach="fog" args={["#dfeaf2", 75, 150]} />
-      <hemisphereLight args={["#cfe3f0", "#e8e2d4", 0.85]} />
+      <hemisphereLight args={["#cfe3f0", "#eadfca", 0.9]} />
+      <ambientLight intensity={0.2} color="#ffe7c4" />
       <directionalLight
         position={[18, 28, 12]}
-        intensity={1.5}
+        color="#fff0db"
+        intensity={1.6}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-30}
