@@ -27,6 +27,12 @@ export function unitRect(letterIndex: number): UnitRect {
   };
 }
 
+/** Penthouse layout: two duplex units split left/right around the core. */
+export function penthouseRect(letterIndex: number): UnitRect {
+  const i = letterIndex % 2;
+  return { x: (i === 0 ? -1 : 1) * 4.4, z: 0, w: 7.2, d: 8.4 };
+}
+
 export function floorY(floorNumber: number): number {
   return TOWER.podiumHeight + (floorNumber - 1) * TOWER.floorHeight;
 }

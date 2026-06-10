@@ -34,6 +34,8 @@ export type PublicFloor = {
   label: string;
   /** Featured floors carry named residences in the demo data. */
   featured: boolean;
+  /** Duplex penthouse level spanning two floors, shown as a section cutaway. */
+  penthouse?: boolean;
   homes: PublicHome[];
 };
 

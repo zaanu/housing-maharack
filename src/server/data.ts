@@ -26,6 +26,7 @@ export type Floor = {
   number: number;
   label: string;
   featured: boolean;
+  penthouse?: boolean;
   homes: Home[];
 };
 
@@ -96,9 +97,45 @@ function namedFloor(
   };
 }
 
+function penthouseFloor(): Floor {
+  return {
+    id: "floor-13",
+    number: 13,
+    label: "Penthouse · Floors 13–14",
+    featured: true,
+    penthouse: true,
+    homes: [
+      {
+        id: "home-ph-a",
+        floorId: "floor-13",
+        homeCode: "PH-A",
+        publicDisplayName: "The Maharack Penthouse",
+        showPublicName: true,
+        configuration: "5 BHK Duplex",
+        carpetAreaSqFt: 4250,
+        orientation: "Double-height living · private terrace",
+        availability: "available",
+        meshIds: ["tower-a__penthouse__home-a"],
+      },
+      {
+        id: "home-ph-b",
+        floorId: "floor-13",
+        homeCode: "PH-B",
+        publicDisplayName: "Skyline Crown Penthouse",
+        showPublicName: true,
+        configuration: "4 BHK Duplex",
+        carpetAreaSqFt: 3600,
+        orientation: "Sunset-facing · double-height lounge",
+        availability: "reserved",
+        meshIds: ["tower-a__penthouse__home-b"],
+      },
+    ],
+  };
+}
+
 export function seedProject(): ProjectState {
   const floors: Floor[] = [];
-  for (let n = 1; n <= 14; n++) {
+  for (let n = 1; n <= 12; n++) {
     if (n === 6) {
       floors.push(
         namedFloor(6, [
@@ -130,6 +167,7 @@ export function seedProject(): ProjectState {
       floors.push(genericFloor(n));
     }
   }
+  floors.push(penthouseFloor());
   return {
     projectName: "Maharack Heights",
     towerName: "Tower A",

@@ -5,15 +5,29 @@ import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { CameraControls } from "@react-three/drei";
 import type CameraControlsImpl from "camera-controls";
 import type { PublicFloor, PublicHome } from "@/lib/types";
-import { floorY } from "@/lib/layout";
+import { floorY, penthouseRect, unitRect } from "@/lib/layout";
 import Tower from "./Tower";
 
-function CameraRig({ selectedFloorNumber }: { selectedFloorNumber: number | null }) {
+function CameraRig({
+  selectedFloor,
+  selectedHomeId,
+}: {
+  selectedFloor: PublicFloor | null;
+  selectedHomeId: string | null;
+}) {
   const controls = useRef<CameraControlsImpl | null>(null);
   const interacted = useRef(false);
   const aspect = useThree((s) => s.viewport.aspect);
   // portrait screens need more distance so the whole floor/building fits
   const zoomOut = aspect < 0.9 ? 1.55 : 1;
+
+  const n = selectedFloor?.number ?? null;
+  const pent = !!selectedFloor?.penthouse;
+  const idx =
+    selectedFloor && selectedHomeId
+      ? selectedFloor.homes.findIndex((h) => h.id === selectedHomeId)
+      : -1;
+  const focus = idx >= 0 ? (pent ? penthouseRect(idx) : unitRect(idx)) : null;
 
   useEffect(() => {
     const c = controls.current;
@@ -26,19 +40,52 @@ function CameraRig({ selectedFloorNumber }: { selectedFloorNumber: number | null
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
-    if (selectedFloorNumber == null) {
+    if (n == null) {
       // full exterior view
       c.setLookAt(21 * zoomOut, 16 * zoomOut, 23 * zoomOut, 0, 7.5, 0, true);
+      return;
+    }
+    const y = floorY(n);
+    if (pent) {
+      if (focus) {
+        // frontal duplex section of one penthouse
+        c.setLookAt(
+          focus.x * 0.85 + (focus.x < 0 ? -1.2 : 1.2),
+          y + 2.9 * zoomOut,
+          10.5 * zoomOut,
+          focus.x * 0.85,
+          y + 1.05,
+          0.4,
+          true
+        );
+      } else {
+        // both penthouses, dollhouse section view
+        c.setLookAt(4.5, y + (3.4 + 1.6 * (zoomOut - 1)), 16.5 * zoomOut, 0, y + 1.15, 0, true);
+      }
+      return;
+    }
+    if (focus) {
+      // dive toward the selected home, still tilted enough to read the rooms
+      const ox = focus.x < 0 ? -3.1 : 3.1;
+      const oz = focus.z < 0 ? -4.4 : 4.4;
+      c.setLookAt(
+        focus.x + ox * zoomOut,
+        y + 4.6 * zoomOut,
+        focus.z + oz * zoomOut,
+        focus.x,
+        y + 0.25,
+        focus.z,
+        true
+      );
     } else {
       // slightly tilted top-down view of the selected floor
-      const y = floorY(selectedFloorNumber);
       c.setLookAt(9.5 * zoomOut, y + 11.5 * zoomOut, 10.5 * zoomOut, 0, y + 0.2, 0, true);
     }
-  }, [selectedFloorNumber, zoomOut]);
+  }, [n, pent, focus?.x, focus?.z, zoomOut]);
 
   useFrame((_, delta) => {
     // gentle idle rotation in the exterior view until the user takes over
-    if (!interacted.current && selectedFloorNumber == null && controls.current) {
+    if (!interacted.current && n == null && controls.current) {
       controls.current.azimuthAngle += delta * 0.06;
     }
   });
@@ -47,7 +94,7 @@ function CameraRig({ selectedFloorNumber }: { selectedFloorNumber: number | null
     <CameraControls
       ref={controls}
       makeDefault
-      minDistance={7}
+      minDistance={3.5}
       maxDistance={60}
       maxPolarAngle={Math.PI / 2 - 0.04}
       smoothTime={0.5}
@@ -57,7 +104,7 @@ function CameraRig({ selectedFloorNumber }: { selectedFloorNumber: number | null
 
 export default function BuildingScene({
   floors,
-  selectedFloorNumber,
+  selectedFloor,
   selectedHomeId,
   onSelectFloor,
   onSelectHome,
@@ -65,7 +112,7 @@ export default function BuildingScene({
   onReady,
 }: {
   floors: PublicFloor[];
-  selectedFloorNumber: number | null;
+  selectedFloor: PublicFloor | null;
   selectedHomeId: string | null;
   onSelectFloor: (floor: PublicFloor) => void;
   onSelectHome: (home: PublicHome) => void;
@@ -96,12 +143,12 @@ export default function BuildingScene({
       />
       <Tower
         floors={floors}
-        selectedFloorNumber={selectedFloorNumber}
+        selectedFloorNumber={selectedFloor?.number ?? null}
         selectedHomeId={selectedHomeId}
         onSelectFloor={onSelectFloor}
         onSelectHome={onSelectHome}
       />
-      <CameraRig selectedFloorNumber={selectedFloorNumber} />
+      <CameraRig selectedFloor={selectedFloor} selectedHomeId={selectedHomeId} />
     </Canvas>
   );
 }

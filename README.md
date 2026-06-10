@@ -29,7 +29,12 @@ Production build: `npm run build && npm start` (Node ≥ 20.9).
   the real architectural models are integrated (see *GLB assets* below).
 - Clicking a floor (or using the vertical selector) fades out the floors above,
   keeps the lower floors as context, and tilts the camera to a top-down view of
-  the selected floor showing each home as a selectable unit with its label.
+  the selected floor. Each home renders as a furnished dollhouse cutaway
+  (procedural rooms and furniture in `src/components/scene/Interior.tsx`);
+  selecting a home dives the camera into that unit.
+- Floors 13–14 are two duplex **penthouses** presented as a frontal two-level
+  section view — double-height living void, connecting staircase, furnished
+  upper level — selectable via the "PH" entry in the floor selector.
 - Devices without WebGL automatically get a 2D floor-plan explorer with the
   same data and selection flow.
 

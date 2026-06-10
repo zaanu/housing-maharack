@@ -38,7 +38,7 @@ export default function FloorSelector({
               active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
             }`}
           >
-            {String(floor.number).padStart(2, "0")}
+            {floor.penthouse ? "PH" : String(floor.number).padStart(2, "0")}
             {floor.featured && (
               <span
                 className={`absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full ${

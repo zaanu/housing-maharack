@@ -1,7 +1,7 @@
 "use client";
 
 import type { PublicFloor, PublicHome } from "@/lib/types";
-import { unitRect, AVAILABILITY_COLOR } from "@/lib/layout";
+import { unitRect, penthouseRect, AVAILABILITY_COLOR } from "@/lib/layout";
 
 // 2D floor plan used by the WebGL fallback and the "View Floor Plan" modal.
 // Mirrors the 3D quadrant layout (scene metre × 10 = SVG unit).
@@ -18,14 +18,14 @@ export default function FloorPlanSVG({
   return (
     <svg viewBox="0 0 176 116" className="h-auto w-full" role="img" aria-label={`${floor.label} plan`}>
       <rect x="4" y="4" width="168" height="108" rx="4" fill="#f5f2ea" stroke="#94a3b8" strokeWidth="1.5" />
-      {/* corridor cross */}
+      {/* corridor: cross for regular floors, central core for the penthouse */}
       <rect x="80" y="6" width="16" height="104" fill="#e4ded0" />
-      <rect x="6" y="47" width="164" height="22" fill="#e4ded0" />
-      <text x="88" y="60.5" textAnchor="middle" fontSize="5" fill="#64748b" letterSpacing="1.5">
-        CORRIDOR
+      {!floor.penthouse && <rect x="6" y="47" width="164" height="22" fill="#e4ded0" />}
+      <text x="88" y="60.5" textAnchor="middle" fontSize="5" fill="#64748b" letterSpacing="1.5" writingMode={floor.penthouse ? "tb" : undefined}>
+        {floor.penthouse ? "CORE" : "CORRIDOR"}
       </text>
       {floor.homes.map((home, i) => {
-        const r = unitRect(i);
+        const r = floor.penthouse ? penthouseRect(i) : unitRect(i);
         const x = 88 + (r.x - r.w / 2) * 10;
         const y = 58 + (r.z - r.d / 2) * 10;
         const selected = home.id === selectedHomeId;

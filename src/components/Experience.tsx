@@ -95,7 +95,7 @@ export default function Experience() {
           <div className="absolute inset-0">
             <BuildingScene
               floors={floors}
-              selectedFloorNumber={selectedFloor?.number ?? null}
+              selectedFloor={selectedFloor}
               selectedHomeId={selectedHomeId}
               onSelectFloor={selectFloor}
               onSelectHome={selectHome}
@@ -171,7 +171,7 @@ export default function Experience() {
 
       {/* floor selector */}
       {project && (
-        <div className="absolute right-3 top-1/2 z-20 -translate-y-1/2 md:right-5">
+        <div className="absolute left-3 top-1/2 z-20 -translate-y-1/2 md:left-5">
           <FloorSelector
             floors={floors}
             selectedFloorId={selectedFloorId}

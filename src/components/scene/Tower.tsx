@@ -2,10 +2,11 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
-import { Edges, Html } from "@react-three/drei";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import type { PublicFloor, PublicHome } from "@/lib/types";
-import { TOWER, unitRect, floorY, AVAILABILITY_COLOR } from "@/lib/layout";
+import { TOWER, unitRect, penthouseRect, floorY, AVAILABILITY_COLOR } from "@/lib/layout";
+import UnitInterior, { PenthouseInterior } from "./Interior";
 
 type FloorMode = "normal" | "context" | "open" | "above";
 
@@ -29,7 +30,70 @@ const TARGETS: Record<FloorMode, { glass: number; structure: number; lift: numbe
   above: { glass: 0, structure: 0, lift: 1.1 },
 };
 
-function UnitMesh({
+function bedroomsOf(home: PublicHome): number {
+  const n = home.configuration ? parseInt(home.configuration, 10) : NaN;
+  return Number.isFinite(n) ? Math.min(n, 4) : 2;
+}
+
+function HomeLabel({
+  home,
+  y,
+  selected,
+}: {
+  home: PublicHome;
+  y: number;
+  selected: boolean;
+}) {
+  return (
+    <Html position={[0, y, 0]} center distanceFactor={14} zIndexRange={[20, 0]}>
+      <div
+        className={`pointer-events-none select-none whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium shadow-md backdrop-blur ${
+          selected ? "bg-slate-900 text-white" : "bg-white/90 text-slate-800"
+        }`}
+      >
+        {home.label}
+      </div>
+    </Html>
+  );
+}
+
+/** Invisible full-unit click target so furniture never blocks selection. */
+function HitBox({
+  home,
+  size,
+  onSelect,
+  setHovered,
+}: {
+  home: PublicHome;
+  size: [number, number, number];
+  onSelect: (home: PublicHome) => void;
+  setHovered: (v: boolean) => void;
+}) {
+  return (
+    <mesh
+      name={home.meshIds[0] ?? home.id}
+      position={[0, size[1] / 2, 0]}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect(home);
+      }}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={() => {
+        setHovered(false);
+        document.body.style.cursor = "auto";
+      }}
+    >
+      <boxGeometry args={size} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
+function UnitHome({
   home,
   index,
   selected,
@@ -42,47 +106,70 @@ function UnitMesh({
 }) {
   const [hovered, setHovered] = useState(false);
   const rect = unitRect(index);
-  const h = 0.72;
-  const color = AVAILABILITY_COLOR[home.availability] ?? "#cbd5e1";
+  const rim = AVAILABILITY_COLOR[home.availability] ?? "#cbd5e1";
+  const sx: 1 | -1 = rect.x < 0 ? 1 : -1; // canonical outer facade at -x
+  const sz: 1 | -1 = rect.z > 0 ? 1 : -1; // canonical window front at +z
 
   return (
-    <group position={[rect.x, TOWER.slabThickness + h / 2, rect.z]}>
-      <mesh
-        name={home.meshIds[0] ?? home.id}
-        castShadow
-        scale={selected ? [1, 1.12, 1] : [1, 1, 1]}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect(home);
-        }}
-        onPointerOver={(e) => {
-          e.stopPropagation();
-          setHovered(true);
-          document.body.style.cursor = "pointer";
-        }}
-        onPointerOut={() => {
-          setHovered(false);
-          document.body.style.cursor = "auto";
-        }}
-      >
-        <boxGeometry args={[rect.w - 0.3, h, rect.d - 0.3]} />
+    <group position={[rect.x, TOWER.slabThickness, rect.z]}>
+      {/* availability rim under the unit */}
+      <mesh position={[0, 0.02, 0]}>
+        <boxGeometry args={[rect.w - 0.12, 0.045, rect.d - 0.12]} />
         <meshStandardMaterial
-          color={color}
-          roughness={0.55}
-          emissive={selected || hovered ? color : "#000000"}
-          emissiveIntensity={selected ? 0.55 : hovered ? 0.3 : 0}
+          color={rim}
+          emissive={rim}
+          emissiveIntensity={selected ? 0.7 : hovered ? 0.4 : 0.12}
         />
-        <Edges scale={1.001} color={selected ? "#0f172a" : "#334155"} />
       </mesh>
-      <Html position={[0, h + 0.45, 0]} center distanceFactor={14} zIndexRange={[20, 0]}>
-        <div
-          className={`pointer-events-none select-none whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-medium shadow-md backdrop-blur ${
-            selected ? "bg-slate-900 text-white" : "bg-white/90 text-slate-800"
-          }`}
-        >
-          {home.label}
-        </div>
-      </Html>
+      {/* wood floor */}
+      <mesh position={[0, 0.052, 0]} receiveShadow>
+        <boxGeometry args={[rect.w - 0.3, 0.03, rect.d - 0.3]} />
+        <meshStandardMaterial color="#dcc9a3" roughness={0.9} />
+      </mesh>
+      <group position={[0, 0.067, 0]}>
+        <UnitInterior bedrooms={bedroomsOf(home)} sx={sx} sz={sz} />
+      </group>
+      <HitBox home={home} size={[rect.w - 0.15, 0.85, rect.d - 0.15]} onSelect={onSelect} setHovered={setHovered} />
+      <HomeLabel home={home} y={1.15} selected={selected} />
+    </group>
+  );
+}
+
+function PenthouseHome({
+  home,
+  index,
+  selected,
+  onSelect,
+}: {
+  home: PublicHome;
+  index: number;
+  selected: boolean;
+  onSelect: (home: PublicHome) => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const rect = penthouseRect(index);
+  const rim = AVAILABILITY_COLOR[home.availability] ?? "#cbd5e1";
+  const sx: 1 | -1 = rect.x < 0 ? 1 : -1;
+
+  return (
+    <group position={[rect.x, TOWER.slabThickness, rect.z]}>
+      <mesh position={[0, 0.02, 0]}>
+        <boxGeometry args={[rect.w - 0.12, 0.045, rect.d - 0.12]} />
+        <meshStandardMaterial
+          color={rim}
+          emissive={rim}
+          emissiveIntensity={selected ? 0.7 : hovered ? 0.4 : 0.12}
+        />
+      </mesh>
+      <mesh position={[0, 0.052, 0]} receiveShadow>
+        <boxGeometry args={[rect.w - 0.3, 0.03, rect.d - 0.3]} />
+        <meshStandardMaterial color="#e2e0da" roughness={0.95} />
+      </mesh>
+      <group position={[0, 0.067, 0]}>
+        <PenthouseInterior sx={sx} />
+      </group>
+      <HitBox home={home} size={[rect.w - 0.15, 2.15, rect.d - 0.15]} onSelect={onSelect} setHovered={setHovered} />
+      <HomeLabel home={home} y={2.45} selected={selected} />
     </group>
   );
 }
@@ -106,6 +193,8 @@ function FloorBlock({
   const baseY = floorY(floor.number);
   const mode = modeOf(floor.number, selectedFloorNumber);
   const open = mode === "open";
+  const levels = floor.penthouse ? 2 : 1;
+  const height = TOWER.floorHeight * levels;
 
   useFrame((_, delta) => {
     const t = TARGETS[mode];
@@ -124,7 +213,7 @@ function FloorBlock({
     }
   });
 
-  const bodyH = TOWER.floorHeight - TOWER.slabThickness;
+  const bodyH = height - TOWER.slabThickness;
   const columns = useMemo(() => {
     const xs = [-TOWER.width / 2 + 0.2, 0, TOWER.width / 2 - 0.2];
     const zs = [-TOWER.depth / 2 + 0.2, TOWER.depth / 2 - 0.2];
@@ -183,6 +272,13 @@ function FloorBlock({
               <meshStandardMaterial color="#d8d2c4" roughness={0.7} transparent opacity={1} />
             </mesh>
           ))}
+          {/* mid slab band for the two-storey penthouse shell */}
+          {floor.penthouse && (
+            <mesh position={[0, TOWER.floorHeight, 0]}>
+              <boxGeometry args={[TOWER.width + 0.2, 0.12, TOWER.depth + 0.2]} />
+              <meshStandardMaterial color="#e3ddd0" roughness={0.8} transparent opacity={1} />
+            </mesh>
+          )}
           {/* balcony ledges on the front face */}
           {[-4.2, 4.2].map((x) => (
             <mesh key={x} position={[x, TOWER.slabThickness + 0.16, TOWER.depth / 2 + 0.35]}>
@@ -195,30 +291,40 @@ function FloorBlock({
 
       {open && (
         <group>
-          {/* corridor floor tint */}
+          {/* shared floor deck */}
           <mesh position={[0, TOWER.slabThickness + 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <planeGeometry args={[TOWER.width, TOWER.depth]} />
             <meshStandardMaterial color="#dcd6c9" roughness={0.9} />
           </mesh>
-          {floor.homes.map((home, i) => (
-            <UnitMesh
-              key={home.id}
-              home={home}
-              index={i}
-              selected={home.id === selectedHomeId}
-              onSelect={onSelectHome}
-            />
-          ))}
+          {floor.homes.map((home, i) =>
+            floor.penthouse ? (
+              <PenthouseHome
+                key={home.id}
+                home={home}
+                index={i}
+                selected={home.id === selectedHomeId}
+                onSelect={onSelectHome}
+              />
+            ) : (
+              <UnitHome
+                key={home.id}
+                home={home}
+                index={i}
+                selected={home.id === selectedHomeId}
+                onSelect={onSelectHome}
+              />
+            )
+          )}
         </group>
       )}
     </group>
   );
 }
 
-function Roof({ topFloorNumber, sliced }: { topFloorNumber: number; sliced: boolean }) {
+function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: boolean }) {
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
-  const baseY = floorY(topFloorNumber + 1);
+  const baseY = floorY(baseFloorNumber);
 
   useFrame((_, delta) => {
     const target = sliced ? 0 : 1;
@@ -260,7 +366,7 @@ export default function Tower({
   onSelectFloor: (floor: PublicFloor) => void;
   onSelectHome: (home: PublicHome) => void;
 }) {
-  const top = Math.max(...floors.map((f) => f.number), 1);
+  const roofBase = Math.max(...floors.map((f) => f.number + (f.penthouse ? 2 : 1)), 2);
   return (
     <group>
       {/* ground */}
@@ -289,7 +395,7 @@ export default function Tower({
           onSelectHome={onSelectHome}
         />
       ))}
-      <Roof topFloorNumber={top} sliced={selectedFloorNumber != null} />
+      <Roof baseFloorNumber={roofBase} sliced={selectedFloorNumber != null} />
     </group>
   );
 }

@@ -43,6 +43,7 @@ function toPublicFloor(floor: Floor, mode: ProjectState["residentDisplayMode"]):
     number: floor.number,
     label: floor.label,
     featured: floor.featured,
+    penthouse: floor.penthouse,
     homes: floor.homes.map((h) => toPublicHome(h, mode)),
   };
 }
