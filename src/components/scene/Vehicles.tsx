@@ -9,6 +9,7 @@ import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Halo, LightCone } from "./glow";
+import { useSceneMode } from "./mode";
 
 type V3 = [number, number, number];
 export type CarKind = "sedan" | "suv" | "sports";
@@ -98,6 +99,11 @@ export default function Car({
     }
   });
 
+  // headlights and neon only run after dark, regardless of what the caller asks
+  const { lit } = useSceneMode();
+  const lightsOn = lights && lit;
+  const neonOn = neon && lit;
+
   const sporty = kind === "sports";
   const tall = kind === "suv";
   const bodyY = sporty ? 0.27 : 0.33;
@@ -131,11 +137,11 @@ export default function Car({
       {sporty && <Part p={[-0.85, 0.44, 0.3]} s={[0.05, 0.09, 0.05]} c="#23282e" />}
       {sporty && <Part p={[-0.85, 0.44, -0.3]} s={[0.05, 0.09, 0.05]} c="#23282e" />}
       {/* headlights + taillights */}
-      <Part p={[0.9, 0.38, 0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={lights ? 2.2 : 0.4} />
-      <Part p={[0.9, 0.38, -0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={lights ? 2.2 : 0.4} />
-      <Part p={[-0.9, 0.38, 0.26]} s={[0.03, 0.05, 0.13]} c="#ff3b30" glow={lights ? 1.6 : 0.5} />
-      <Part p={[-0.9, 0.38, -0.26]} s={[0.03, 0.05, 0.13]} c="#ff3b30" glow={lights ? 1.6 : 0.5} />
-      {lights && (
+      <Part p={[0.9, 0.38, 0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={lightsOn ? 2.2 : 0.4} />
+      <Part p={[0.9, 0.38, -0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={lightsOn ? 2.2 : 0.4} />
+      <Part p={[-0.9, 0.38, 0.26]} s={[0.03, 0.05, 0.13]} c="#ff3b30" glow={lightsOn ? 1.6 : 0.5} />
+      <Part p={[-0.9, 0.38, -0.26]} s={[0.03, 0.05, 0.13]} c="#ff3b30" glow={lightsOn ? 1.6 : 0.5} />
+      {lightsOn && (
         <group>
           <Halo p={[0.94, 0.38, 0.26]} size={0.42} color="#ffe9b0" opacity={0.65} />
           <Halo p={[0.94, 0.38, -0.26]} size={0.42} color="#ffe9b0" opacity={0.65} />
@@ -160,7 +166,7 @@ export default function Car({
         </group>
       )}
       {/* neon underglow */}
-      {neon && (
+      {neonOn && (
         <mesh position={[0, 0.07, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[1.9, 1.1]} />
           <meshBasicMaterial color={neon} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />

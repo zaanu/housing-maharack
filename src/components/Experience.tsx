@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import type { PublicFloor, PublicHome, PublicProject } from "@/lib/types";
 import { installErrorMonitor, track, webglSupported } from "@/lib/client";
 import { AVAILABILITY_COLOR } from "@/lib/layout";
+import type { SceneMode } from "./scene/mode";
 import FloorSelector from "./ui/FloorSelector";
 import HomePanel from "./ui/HomePanel";
 import FloorPlanSVG from "./ui/FloorPlanSVG";
@@ -31,6 +32,26 @@ class SceneErrorBoundary extends Component<{ onError: () => void; children: Reac
   }
 }
 
+const MODE_LABEL: Record<SceneMode, string> = { day: "Day", night: "Night", gta: "GTA" };
+
+function ModeSwitch({ mode, onChange }: { mode: SceneMode; onChange: (m: SceneMode) => void }) {
+  return (
+    <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-white/85 p-1 shadow backdrop-blur">
+      {(Object.keys(MODE_LABEL) as SceneMode[]).map((m) => (
+        <button
+          key={m}
+          onClick={() => onChange(m)}
+          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+            mode === m ? "bg-slate-900 text-white" : "text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          {MODE_LABEL[m]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Legend() {
   return (
     <div className="pointer-events-auto flex flex-wrap items-center gap-x-3 gap-y-1 rounded-full bg-white/85 px-3.5 py-1.5 text-[11px] font-medium text-slate-700 shadow backdrop-blur">
@@ -52,6 +73,7 @@ export default function Experience() {
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedHomeId, setSelectedHomeId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
+  const [sceneMode, setSceneMode] = useState<SceneMode>("gta");
 
   useEffect(() => {
     installErrorMonitor();
@@ -97,6 +119,7 @@ export default function Experience() {
               floors={floors}
               selectedFloor={selectedFloor}
               selectedHomeId={selectedHomeId}
+              mode={sceneMode}
               onSelectFloor={selectFloor}
               onSelectHome={selectHome}
               onClearSelection={() => setSelectedHomeId(null)}
@@ -157,6 +180,7 @@ export default function Experience() {
           </div>
           <div className="flex flex-col items-end gap-2">
             <Legend />
+            {use3D && <ModeSwitch mode={sceneMode} onChange={setSceneMode} />}
             <a
               href="/vastu-heights"
               className="pointer-events-auto rounded-full bg-[#2A2420]/90 px-3.5 py-1.5 text-[11px] font-semibold text-amber-200 shadow backdrop-blur hover:bg-[#2A2420] hover:text-amber-100 transition-colors"

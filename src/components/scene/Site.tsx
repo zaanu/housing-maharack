@@ -12,6 +12,7 @@ import * as THREE from "three";
 import Car from "./Vehicles";
 import { Halo, LightCone } from "./glow";
 import { Walker, Sitter, Lounging, Swimmer, Person } from "./People";
+import { useSceneMode } from "./mode";
 
 const ASPHALT = "#41464d";
 const KERB = "#d8d4c8";
@@ -193,6 +194,7 @@ function Shrub({ p, flower = "#c75db4", seed = 1 }: { p: V3; flower?: string; se
 }
 
 function Lamp({ p }: { p: V3 }) {
+  const { lit } = useSceneMode();
   return (
     <group position={p}>
       <mesh position={[0, 0.55, 0]} castShadow>
@@ -201,10 +203,14 @@ function Lamp({ p }: { p: V3 }) {
       </mesh>
       <mesh position={[0, 1.14, 0]}>
         <sphereGeometry args={[0.07, 10, 8]} />
-        <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={2.2} />
+        <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={lit ? 2.2 : 0.12} />
       </mesh>
-      <Halo p={[0, 1.14, 0]} size={0.9} color="#ffce8a" opacity={0.5} />
-      <LightCone p={[0, 1.1, 0]} h={1.15} r={0.6} opacity={0.07} />
+      {lit && (
+        <>
+          <Halo p={[0, 1.14, 0]} size={0.9} color="#ffce8a" opacity={0.5} />
+          <LightCone p={[0, 1.1, 0]} h={1.15} r={0.6} opacity={0.07} />
+        </>
+      )}
     </group>
   );
 }
@@ -222,6 +228,7 @@ function Bench({ p, ry = 0 }: { p: V3; ry?: number }) {
 
 /** Animated pool water: gentle ripple shimmer strips drifting across. */
 function PoolWater({ w, d }: { w: number; d: number }) {
+  const { lit } = useSceneMode();
   const shimmer = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     const t = clock.elapsedTime;
@@ -245,19 +252,20 @@ function PoolWater({ w, d }: { w: number; d: number }) {
           transparent
           opacity={0.88}
           emissive="#1f9cc4"
-          emissiveIntensity={0.55}
+          emissiveIntensity={lit ? 0.55 : 0.08}
         />
       </mesh>
-      {/* underwater lights glowing through the dusk */}
-      {[-2.2, 0, 2.2].map((x) => (
-        <group key={x}>
-          <mesh position={[x, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <circleGeometry args={[0.55, 20]} />
-            <meshBasicMaterial color="#7fe6ff" transparent opacity={0.32} blending={THREE.AdditiveBlending} depthWrite={false} />
-          </mesh>
-          <Halo p={[x, 0.12, 0]} size={1.3} color="#5fd8f0" opacity={0.3} />
-        </group>
-      ))}
+      {/* underwater lights glowing after dark */}
+      {lit &&
+        [-2.2, 0, 2.2].map((x) => (
+          <group key={x}>
+            <mesh position={[x, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[0.55, 20]} />
+              <meshBasicMaterial color="#7fe6ff" transparent opacity={0.32} blending={THREE.AdditiveBlending} depthWrite={false} />
+            </mesh>
+            <Halo p={[x, 0.12, 0]} size={1.3} color="#5fd8f0" opacity={0.3} />
+          </group>
+        ))}
       <group ref={shimmer}>
         {[-0.9, 0.2, 1.1].map((z, i) => (
           <mesh key={i} position={[0, 0.058, z * (d / 3.6)]} rotation={[-Math.PI / 2, 0, 0.12 * i]}>
@@ -562,6 +570,7 @@ function SiteZone({
 
 export default function Site() {
   const [hover, setHover] = useState<string | null>(null);
+  const { lit } = useSceneMode();
 
   const wallPosts = [];
   for (let x = -24; x <= 24; x += 4) {
@@ -602,13 +611,13 @@ export default function Site() {
         <Bx p={[-2.3, 1.74, 0]} s={[0.68, 0.1, 0.68]} c={KERB} />
         <Bx p={[2.3, 1.74, 0]} s={[0.68, 0.1, 0.68]} c={KERB} />
         {/* pillar lanterns */}
-        <Bx p={[-2.3, 1.85, 0]} s={[0.16, 0.12, 0.16]} c={GLOW} glow={2} />
-        <Bx p={[2.3, 1.85, 0]} s={[0.16, 0.12, 0.16]} c={GLOW} glow={2} />
-        <Halo p={[-2.3, 1.85, 0]} size={1.0} color="#ffce8a" opacity={0.55} />
-        <Halo p={[2.3, 1.85, 0]} size={1.0} color="#ffce8a" opacity={0.55} />
+        <Bx p={[-2.3, 1.85, 0]} s={[0.16, 0.12, 0.16]} c={GLOW} glow={lit ? 2 : 0.12} />
+        <Bx p={[2.3, 1.85, 0]} s={[0.16, 0.12, 0.16]} c={GLOW} glow={lit ? 2 : 0.12} />
+        {lit && <Halo p={[-2.3, 1.85, 0]} size={1.0} color="#ffce8a" opacity={0.55} />}
+        {lit && <Halo p={[2.3, 1.85, 0]} size={1.0} color="#ffce8a" opacity={0.55} />}
         <Bx p={[0, 1.98, 0]} s={[5.3, 0.38, 0.42]} c={STEELD} shadow />
         {/* backlit sign glow */}
-        <Bx p={[0, 1.98, 0.22]} s={[4.6, 0.26, 0.02]} c="#ffb454" glow={1.1} />
+        <Bx p={[0, 1.98, 0.22]} s={[4.6, 0.26, 0.02]} c="#ffb454" glow={lit ? 1.1 : 0.15} />
         <Html position={[0, 1.98, 0.25]} center distanceFactor={16} zIndexRange={[25, 0]}>
           <div className="pointer-events-none select-none whitespace-nowrap rounded bg-transparent text-center">
             <p className="text-[11px] font-bold tracking-[0.25em] text-amber-100 drop-shadow">MAHARACK HEIGHTS</p>
@@ -627,7 +636,7 @@ export default function Site() {
           <Bx p={[0, 0.62, 0.51]} s={[0.7, 0.4, 0.02]} c="#3d4a57" />
           <Bx p={[0, 1.0, 0]} s={[1.3, 0.08, 1.2]} c={STEELD} />
           {/* cabin window lit from inside */}
-          <Bx p={[0, 0.62, 0.52]} s={[0.62, 0.32, 0.01]} c="#ffd9a0" glow={1.2} />
+          <Bx p={[0, 0.62, 0.52]} s={[0.62, 0.32, 0.01]} c="#ffd9a0" glow={lit ? 1.2 : 0.1} />
         </group>
         {/* security guard by the barrier */}
         <group position={[2.9, 0, -1.3]} rotation={[0, Math.PI, 0]}>

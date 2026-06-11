@@ -1,20 +1,19 @@
 "use client";
 
-// GTA-style golden-hour atmosphere: a sunset gradient sky dome with a hot
-// glowing sun, drifting pink clouds, a hazy city skyline ringing the horizon
-// with thousands of lit windows, circling birds and a wide dusk ground plane.
+// Mode-aware atmosphere: gradient sky dome with a sun (or moon), optional
+// starfield, drifting clouds, a city skyline ringing the horizon whose
+// windows light up after dark, circling birds and a wide ground plane.
 
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Halo } from "./glow";
+import { useSceneMode } from "./mode";
 
 const rnd = (seed: number, i: number) => {
   const v = Math.sin(seed * 37.13 + i * 13.7) * 43758.5453;
   return v - Math.floor(v);
 };
-
-export const SUN_DIR = new THREE.Vector3(-0.6, 0.17, -0.42).normalize();
 
 const SKY_VERT = `
 varying vec3 vDir;
@@ -27,25 +26,40 @@ void main() {
 const SKY_FRAG = `
 varying vec3 vDir;
 uniform vec3 sunDir;
+uniform vec3 zenith;
+uniform vec3 mid;
+uniform vec3 horizon;
+uniform vec3 sunTint;
+uniform float bloom;
+uniform float core;
 void main() {
   vec3 d = normalize(vDir);
   float h = clamp(d.y, -0.02, 1.0);
-  vec3 zenith  = vec3(0.13, 0.10, 0.32);  // deep indigo
-  vec3 mid     = vec3(0.72, 0.28, 0.52);  // vice magenta
-  vec3 horizon = vec3(1.00, 0.56, 0.36);  // burnt orange
   vec3 col = mix(mid, zenith, smoothstep(0.16, 0.62, h));
   col = mix(horizon, col, smoothstep(0.0, 0.20, h));
   float s = max(dot(d, normalize(sunDir)), 0.0);
-  col += vec3(1.0, 0.5, 0.22) * pow(s, 14.0) * 0.55;  // wide sun bloom
-  col += vec3(1.0, 0.82, 0.55) * pow(s, 90.0) * 1.1;  // hot core
+  col += sunTint * pow(s, 14.0) * bloom;
+  col += vec3(1.0, 0.95, 0.85) * pow(s, 90.0) * core;
   gl_FragColor = vec4(col, 1.0);
 }
 `;
 
 function SkyDome() {
-  const uniforms = useMemo(() => ({ sunDir: { value: SUN_DIR } }), []);
+  const { mode, theme } = useSceneMode();
+  const uniforms = useMemo(
+    () => ({
+      sunDir: { value: theme.sunDir },
+      zenith: { value: new THREE.Color(theme.sky.zenith) },
+      mid: { value: new THREE.Color(theme.sky.mid) },
+      horizon: { value: new THREE.Color(theme.sky.horizon) },
+      sunTint: { value: new THREE.Color(theme.sky.sunTint) },
+      bloom: { value: theme.sky.bloom },
+      core: { value: theme.sky.core },
+    }),
+    [theme]
+  );
   return (
-    <mesh>
+    <mesh key={mode}>
       <sphereGeometry args={[380, 32, 24]} />
       <shaderMaterial
         vertexShader={SKY_VERT}
@@ -59,18 +73,40 @@ function SkyDome() {
   );
 }
 
-function Sun() {
-  const p = SUN_DIR.clone().multiplyScalar(330);
+function SunOrMoon() {
+  const { theme } = useSceneMode();
+  const p = theme.sunDir.clone().multiplyScalar(330);
   return (
     <group>
-      <Halo p={[p.x, p.y, p.z]} size={170} color="#ff9a4d" opacity={0.55} />
-      <Halo p={[p.x, p.y, p.z]} size={70} color="#ffe2b0" opacity={0.9} />
+      <Halo p={[p.x, p.y, p.z]} size={theme.sun.size} color={theme.sun.color} opacity={theme.sun.opacity} />
+      <Halo p={[p.x, p.y, p.z]} size={theme.sun.coreSize} color={theme.sun.coreColor} opacity={theme.sun.coreOpacity} />
     </group>
   );
 }
 
-/** Flat-shaded sunset cloud banks slowly orbiting the scene. */
+function Stars() {
+  const geo = useMemo(() => {
+    const pts: number[] = [];
+    for (let i = 0; i < 700; i++) {
+      const a = rnd(31, i) * Math.PI * 2;
+      const y = 0.06 + rnd(32, i) * 0.92;
+      const xz = Math.sqrt(Math.max(0, 1 - y * y));
+      pts.push(Math.cos(a) * xz * 355, y * 355, Math.sin(a) * xz * 355);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+    return g;
+  }, []);
+  return (
+    <points geometry={geo}>
+      <pointsMaterial color="#cdd3ff" size={1.6} sizeAttenuation={false} transparent opacity={0.85} fog={false} />
+    </points>
+  );
+}
+
+/** Flat-shaded cloud banks slowly orbiting the scene. */
 function Clouds() {
+  const { theme } = useSceneMode();
   const g = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
     if (g.current) g.current.rotation.y += delta * 0.0035;
@@ -104,9 +140,9 @@ function Clouds() {
             <mesh key={j} position={[x, y, z]} scale={[1, 0.42, 1]}>
               <sphereGeometry args={[r, 10, 8]} />
               <meshBasicMaterial
-                color={b.tone > 0.5 ? "#ffc9a4" : "#f5a0c0"}
+                color={b.tone > 0.5 ? theme.cloudHi : theme.cloudLo}
                 transparent
-                opacity={0.92}
+                opacity={theme.cloudOpacity}
                 fog={false}
               />
             </mesh>
@@ -117,10 +153,11 @@ function Clouds() {
   );
 }
 
-/** Hazy downtown silhouette around the horizon + lit-window points. */
+/** City silhouette around the horizon + lit-window points after dark. */
 function Skyline() {
+  const { theme } = useSceneMode();
   const { buildings, windows } = useMemo(() => {
-    const buildings: { x: number; z: number; w: number; h: number; ry: number; c: string }[] = [];
+    const buildings: { x: number; z: number; w: number; h: number; ry: number; tone: number }[] = [];
     const pts: number[] = [];
     for (let i = 0; i < 64; i++) {
       const a = (i / 64) * Math.PI * 2 + rnd(11, i) * 0.1;
@@ -130,16 +167,7 @@ function Skyline() {
       const h = cluster ? 24 + rnd(15, i) * 22 : 6 + rnd(16, i) * 13;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r;
-      const tone = rnd(17, i);
-      buildings.push({
-        x,
-        z,
-        w,
-        h,
-        ry: rnd(18, i) * 0.8,
-        c: tone > 0.5 ? "#3b2d52" : "#332747",
-      });
-      // sprinkle lit windows over the tower faces
+      buildings.push({ x, z, w, h, ry: rnd(18, i) * 0.8, tone: rnd(17, i) });
       const count = Math.floor(w * h * 0.16);
       for (let k = 0; k < count; k++) {
         const face = Math.floor(rnd(19, i * 97 + k) * 4);
@@ -162,19 +190,21 @@ function Skyline() {
       {buildings.map((b, i) => (
         <mesh key={i} position={[b.x, b.h / 2, b.z]} rotation={[0, b.ry, 0]}>
           <boxGeometry args={[b.w, b.h, b.w]} />
-          <meshBasicMaterial color={b.c} fog={false} />
+          <meshBasicMaterial color={b.tone > 0.5 ? theme.skylineA : theme.skylineB} fog={false} />
         </mesh>
       ))}
-      <points geometry={windows}>
-        <pointsMaterial
-          color="#ffc06a"
-          size={0.7}
-          sizeAttenuation
-          transparent
-          opacity={0.8}
-          fog={false}
-        />
-      </points>
+      {theme.skylineWindowOpacity > 0 && (
+        <points geometry={windows}>
+          <pointsMaterial
+            color="#ffc06a"
+            size={0.7}
+            sizeAttenuation
+            transparent
+            opacity={theme.skylineWindowOpacity * 0.8}
+            fog={false}
+          />
+        </points>
+      )}
     </group>
   );
 }
@@ -212,16 +242,18 @@ function Bird({ r, h, speed, phase }: { r: number; h: number; speed: number; pha
 }
 
 export default function Atmosphere() {
+  const { theme } = useSceneMode();
   return (
     <group>
       <SkyDome />
-      <Sun />
+      <SunOrMoon />
+      {theme.stars && <Stars />}
       <Clouds />
       <Skyline />
-      {/* dusk land plane stretching under the skyline */}
+      {/* land plane stretching under the skyline */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
         <circleGeometry args={[300, 48]} />
-        <meshStandardMaterial color="#3c4234" roughness={1} />
+        <meshStandardMaterial color={theme.land} roughness={1} />
       </mesh>
       <Bird r={34} h={24} speed={0.14} phase={0} />
       <Bird r={40} h={27} speed={0.12} phase={2.1} />

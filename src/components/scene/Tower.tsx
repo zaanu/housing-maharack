@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
@@ -8,6 +8,7 @@ import type { PublicFloor, PublicHome } from "@/lib/types";
 import { TOWER, unitRect, penthouseRect, floorY, AVAILABILITY_COLOR } from "@/lib/layout";
 import UnitInterior, { PenthouseInterior } from "./Interior";
 import Site from "./Site";
+import { useSceneMode } from "./mode";
 
 type FloorMode = "normal" | "context" | "open" | "above";
 
@@ -18,8 +19,10 @@ const wrnd = (seed: number, i: number) => {
   return v - Math.floor(v);
 };
 
-/** Warm/cool lit-window pattern, unique per floor, drawn once to a canvas. */
-function windowTexture(seed: number, rows: number): THREE.CanvasTexture {
+/** Warm/cool lit-window pattern, unique per floor, drawn once to a canvas.
+ * `prob` is the share of windows that are lit; because the same seeded
+ * threshold is used, windows lit at dusk stay lit at night. */
+function windowTexture(seed: number, rows: number, prob: number): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = 256;
   c.height = 64 * rows;
@@ -30,8 +33,7 @@ function windowTexture(seed: number, rows: number): THREE.CanvasTexture {
   for (let r = 0; r < rows; r++) {
     for (let i = 0; i < cols; i++) {
       const k = r * cols + i;
-      const lit = wrnd(seed, k) > 0.45;
-      if (!lit) continue;
+      if (wrnd(seed, k) >= prob) continue;
       g.fillStyle = wrnd(seed, 100 + k) > 0.2 ? "#ff9e42" : "#6fb6dc";
       g.fillRect(i * 25.6 + 5, r * 64 + 16, 15, 32);
     }
@@ -193,19 +195,30 @@ function FloorBlock({
 
   const bodyH = height - TOWER.slabThickness;
   const levels2 = floor.penthouse ? 2 : 1;
+  const { theme } = useSceneMode();
+  const showWindows = theme.litWindows > 0;
   const windowsMat = useMemo(() => {
-    const tex = windowTexture(floor.number * 7 + 3, levels2);
+    if (theme.litWindows === 0) return null;
+    const tex = windowTexture(floor.number * 7 + 3, levels2, theme.litWindows);
     return new THREE.MeshStandardMaterial({
       color: "#0c1521",
       emissive: "#ffffff",
       emissiveMap: tex,
-      emissiveIntensity: 0.72,
+      emissiveIntensity: theme.windowGlow,
       roughness: 0.4,
       transparent: true,
       opacity: 1,
       depthWrite: false,
     });
-  }, [floor.number, levels2]);
+  }, [floor.number, levels2, theme.litWindows, theme.windowGlow]);
+  useEffect(() => {
+    return () => {
+      if (windowsMat) {
+        windowsMat.emissiveMap?.dispose();
+        windowsMat.dispose();
+      }
+    };
+  }, [windowsMat]);
 
   useFrame((_, delta) => {
     const t = TARGETS[mode];
@@ -216,7 +229,7 @@ function FloorBlock({
     if (structureMat.current) {
       structureMat.current.opacity = damp(structureMat.current.opacity, t.structure, 6, delta);
     }
-    windowsMat.opacity = (structureMat.current?.opacity ?? 1) * 0.92;
+    if (windowsMat) windowsMat.opacity = (structureMat.current?.opacity ?? 1) * 0.92;
     if (g) {
       g.position.y = damp(g.position.y, baseY + t.lift, 6, delta);
       const visible =
@@ -275,31 +288,36 @@ function FloorBlock({
               depthWrite={false}
             />
           </mesh>
-          {/* lit windows glowing through the dusk facade */}
-          <mesh position={[0, TOWER.slabThickness + bodyH / 2, TOWER.depth / 2 + 0.03]} material={windowsMat}>
-            <planeGeometry args={[TOWER.width - 0.5, bodyH - 0.12]} />
-          </mesh>
-          <mesh
-            position={[0, TOWER.slabThickness + bodyH / 2, -TOWER.depth / 2 - 0.03]}
-            rotation={[0, Math.PI, 0]}
-            material={windowsMat}
-          >
-            <planeGeometry args={[TOWER.width - 0.5, bodyH - 0.12]} />
-          </mesh>
-          <mesh
-            position={[TOWER.width / 2 + 0.03, TOWER.slabThickness + bodyH / 2, 0]}
-            rotation={[0, Math.PI / 2, 0]}
-            material={windowsMat}
-          >
-            <planeGeometry args={[TOWER.depth - 0.5, bodyH - 0.12]} />
-          </mesh>
-          <mesh
-            position={[-TOWER.width / 2 - 0.03, TOWER.slabThickness + bodyH / 2, 0]}
-            rotation={[0, -Math.PI / 2, 0]}
-            material={windowsMat}
-          >
-            <planeGeometry args={[TOWER.depth - 0.5, bodyH - 0.12]} />
-          </mesh>
+          {/* lit windows glowing through the facade — hidden in day mode so
+              the original clear-glass curtain wall shows as specced */}
+          {showWindows && windowsMat && (
+            <>
+              <mesh position={[0, TOWER.slabThickness + bodyH / 2, TOWER.depth / 2 + 0.03]} material={windowsMat}>
+                <planeGeometry args={[TOWER.width - 0.5, bodyH - 0.12]} />
+              </mesh>
+              <mesh
+                position={[0, TOWER.slabThickness + bodyH / 2, -TOWER.depth / 2 - 0.03]}
+                rotation={[0, Math.PI, 0]}
+                material={windowsMat}
+              >
+                <planeGeometry args={[TOWER.width - 0.5, bodyH - 0.12]} />
+              </mesh>
+              <mesh
+                position={[TOWER.width / 2 + 0.03, TOWER.slabThickness + bodyH / 2, 0]}
+                rotation={[0, Math.PI / 2, 0]}
+                material={windowsMat}
+              >
+                <planeGeometry args={[TOWER.depth - 0.5, bodyH - 0.12]} />
+              </mesh>
+              <mesh
+                position={[-TOWER.width / 2 - 0.03, TOWER.slabThickness + bodyH / 2, 0]}
+                rotation={[0, -Math.PI / 2, 0]}
+                material={windowsMat}
+              >
+                <planeGeometry args={[TOWER.depth - 0.5, bodyH - 0.12]} />
+              </mesh>
+            </>
+          )}
           {/* columns */}
           {columns.map(([x, z], i) => (
             <mesh key={i} position={[x, TOWER.slabThickness + bodyH / 2, z]}>
@@ -361,6 +379,7 @@ function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: bo
   const groupRef = useRef<THREE.Group>(null);
   const beacon = useRef<THREE.MeshStandardMaterial>(null);
   const baseY = floorY(baseFloorNumber);
+  const { lit } = useSceneMode();
 
   useFrame(({ clock }, delta) => {
     const target = sliced ? 0 : 1;
@@ -369,9 +388,9 @@ function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: bo
       groupRef.current.position.y = damp(groupRef.current.position.y, baseY + (sliced ? 1.4 : 0), 6, delta);
       groupRef.current.visible = (mat.current?.opacity ?? 1) > 0.03;
     }
-    // slow aviation-beacon pulse
+    // slow aviation-beacon pulse (steady and faint in daylight)
     if (beacon.current) {
-      beacon.current.emissiveIntensity = 1 + Math.max(0, Math.sin(clock.elapsedTime * 2.4)) * 3;
+      beacon.current.emissiveIntensity = lit ? 1 + Math.max(0, Math.sin(clock.elapsedTime * 2.4)) * 3 : 0.35;
     }
   });
 
@@ -403,7 +422,7 @@ function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: bo
         </mesh>
         <mesh position={[0, 0, 0.08]}>
           <boxGeometry args={[6.3, 0.44, 0.02]} />
-          <meshStandardMaterial color="#ffb454" emissive="#ffb454" emissiveIntensity={1.3} transparent opacity={1} />
+          <meshStandardMaterial color="#ffb454" emissive="#ffb454" emissiveIntensity={lit ? 1.3 : 0.15} transparent opacity={1} />
         </mesh>
         {/* Html ignores the fade animation — drop it as soon as the roof slices away */}
         {!sliced && (

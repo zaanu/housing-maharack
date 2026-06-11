@@ -9,6 +9,7 @@ import { floorY, penthouseRect, unitRect } from "@/lib/layout";
 import Tower from "./Tower";
 import Atmosphere from "./Atmosphere";
 import Traffic from "./Traffic";
+import { ModeProvider, THEMES, type SceneMode } from "./mode";
 
 function CameraRig({
   selectedFloor,
@@ -132,6 +133,7 @@ export default function BuildingScene({
   floors,
   selectedFloor,
   selectedHomeId,
+  mode,
   onSelectFloor,
   onSelectHome,
   onClearSelection,
@@ -140,11 +142,13 @@ export default function BuildingScene({
   floors: PublicFloor[];
   selectedFloor: PublicFloor | null;
   selectedHomeId: string | null;
+  mode: SceneMode;
   onSelectFloor: (floor: PublicFloor) => void;
   onSelectHome: (home: PublicHome) => void;
   onClearSelection: () => void;
   onReady: () => void;
 }) {
+  const theme = THEMES[mode];
   return (
     <Canvas
       shadows
@@ -154,37 +158,39 @@ export default function BuildingScene({
       onPointerMissed={onClearSelection}
       className="touch-none"
     >
-      <color attach="background" args={["#241a3e"]} />
-      <fog attach="fog" args={["#c96f86", 70, 210]} />
-      {/* golden-hour rig: magenta sky bounce, low warm sun, soft camera-side fill */}
-      <hemisphereLight args={["#ffb3bd", "#4a4060", 0.85]} />
-      <ambientLight intensity={0.42} color="#ffe3d2" />
-      <directionalLight
-        position={[-28, 14, -19]}
-        color="#ffa64d"
-        intensity={2.1}
-        castShadow
-        shadow-mapSize={[2048, 2048]}
-        shadow-radius={6}
-        shadow-bias={-0.0002}
-        shadow-camera-left={-45}
-        shadow-camera-right={45}
-        shadow-camera-top={45}
-        shadow-camera-bottom={-45}
-      />
-      <directionalLight position={[26, 20, 30]} color="#ffc3a0" intensity={1.05} />
-      {/* soft top light so opened floors and interiors stay readable */}
-      <directionalLight position={[5, 60, 8]} color="#fff0e0" intensity={0.5} />
-      <Atmosphere />
-      <Traffic />
-      <Tower
-        floors={floors}
-        selectedFloorNumber={selectedFloor?.number ?? null}
-        selectedHomeId={selectedHomeId}
-        onSelectFloor={onSelectFloor}
-        onSelectHome={onSelectHome}
-      />
-      <CameraRig selectedFloor={selectedFloor} selectedHomeId={selectedHomeId} />
+      {/* the Canvas hosts its own React tree — provide the mode inside it */}
+      <ModeProvider value={mode}>
+        <color attach="background" args={[theme.bg]} />
+        <fog attach="fog" args={theme.fog} />
+        <hemisphereLight args={theme.hemi} />
+        <ambientLight intensity={theme.ambient[1]} color={theme.ambient[0]} />
+        <directionalLight
+          position={theme.key.pos}
+          color={theme.key.color}
+          intensity={theme.key.intensity}
+          castShadow
+          shadow-mapSize={[2048, 2048]}
+          shadow-radius={6}
+          shadow-bias={-0.0002}
+          shadow-camera-left={-45}
+          shadow-camera-right={45}
+          shadow-camera-top={45}
+          shadow-camera-bottom={-45}
+        />
+        <directionalLight position={[26, 20, 30]} color={theme.fill.color} intensity={theme.fill.intensity} />
+        {/* soft top light so opened floors and interiors stay readable */}
+        <directionalLight position={[5, 60, 8]} color="#fff0e0" intensity={theme.topIntensity} />
+        <Atmosphere />
+        <Traffic />
+        <Tower
+          floors={floors}
+          selectedFloorNumber={selectedFloor?.number ?? null}
+          selectedHomeId={selectedHomeId}
+          onSelectFloor={onSelectFloor}
+          onSelectHome={onSelectHome}
+        />
+        <CameraRig selectedFloor={selectedFloor} selectedHomeId={selectedHomeId} />
+      </ModeProvider>
     </Canvas>
   );
 }

@@ -12,6 +12,7 @@ import * as THREE from "three";
 import Car, { type CarKind } from "./Vehicles";
 import { Halo, LightCone } from "./glow";
 import { Walker } from "./People";
+import { useSceneMode } from "./mode";
 
 type V3 = [number, number, number];
 
@@ -154,6 +155,7 @@ function ArrivalCar() {
 }
 
 function StreetLight({ p, side }: { p: V3; side: 1 | -1 }) {
+  const { lit } = useSceneMode();
   const head: V3 = [p[0], 2.42, p[2] + side * 0.75];
   return (
     <group>
@@ -167,15 +169,20 @@ function StreetLight({ p, side }: { p: V3; side: 1 | -1 }) {
       </mesh>
       <mesh position={head}>
         <boxGeometry args={[0.3, 0.07, 0.16]} />
-        <meshStandardMaterial color="#ffdf9e" emissive="#ffd9a0" emissiveIntensity={2} />
+        <meshStandardMaterial color="#ffdf9e" emissive="#ffd9a0" emissiveIntensity={lit ? 2 : 0.1} />
       </mesh>
-      <Halo p={head} size={1.5} color="#ffce8a" opacity={0.5} />
-      <LightCone p={[head[0], head[1] - 0.02, head[2]]} h={2.5} r={1.5} opacity={0.06} />
+      {lit && (
+        <>
+          <Halo p={head} size={1.5} color="#ffce8a" opacity={0.5} />
+          <LightCone p={[head[0], head[1] - 0.02, head[2]]} h={2.5} r={1.5} opacity={0.06} />
+        </>
+      )}
     </group>
   );
 }
 
 function Billboard() {
+  const { lit } = useSceneMode();
   return (
     <group position={[26, 0, 44]}>
       {[-2.6, 2.6].map((x) => (
@@ -191,10 +198,10 @@ function Billboard() {
       {/* neon frame */}
       <mesh position={[0, 4.6, -0.14]}>
         <boxGeometry args={[7.5, 3.5, 0.03]} />
-        <meshStandardMaterial color="#e84d8a" emissive="#e84d8a" emissiveIntensity={1.6} />
+        <meshStandardMaterial color="#e84d8a" emissive="#e84d8a" emissiveIntensity={lit ? 1.6 : 0.25} />
       </mesh>
-      <Halo p={[-3.5, 6.2, -0.2]} size={1.2} color="#ff7ab0" opacity={0.45} />
-      <Halo p={[3.5, 6.2, -0.2]} size={1.2} color="#ff7ab0" opacity={0.45} />
+      {lit && <Halo p={[-3.5, 6.2, -0.2]} size={1.2} color="#ff7ab0" opacity={0.45} />}
+      {lit && <Halo p={[3.5, 6.2, -0.2]} size={1.2} color="#ff7ab0" opacity={0.45} />}
       <Html position={[0, 4.6, -0.2]} center distanceFactor={24} zIndexRange={[15, 0]}>
         <div className="pointer-events-none select-none whitespace-nowrap text-center">
           <p className="text-[20px] font-black leading-tight tracking-tight text-amber-200 drop-shadow">MAHARACK HEIGHTS</p>
