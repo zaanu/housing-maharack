@@ -38,7 +38,9 @@ function Limb({
   );
 }
 
-/** Body with forward = +x. `swing` ≠ 0 animates a walk cycle. */
+/** Body with forward = +x. `swing` ≠ 0 animates a walk cycle.
+ * `dress` drapes a saree/skirt block and a hair bun; `backpack` straps a
+ * school bag on the back. */
 export function Person({
   shirt,
   pants = PANTS[0],
@@ -46,6 +48,8 @@ export function Person({
   scale = 1,
   swing = 0,
   phase = 0,
+  dress,
+  backpack,
 }: {
   shirt: string;
   pants?: string;
@@ -53,6 +57,8 @@ export function Person({
   scale?: number;
   swing?: number;
   phase?: number;
+  dress?: string;
+  backpack?: string;
 }) {
   const limbs = useRef<(THREE.Group | null)[]>([]);
   const body = useRef<THREE.Group>(null);
@@ -85,6 +91,29 @@ export function Person({
         <sphereGeometry args={[0.05, 10, 8]} />
         <meshStandardMaterial color="#2c2118" roughness={1} />
       </mesh>
+      {dress && (
+        <>
+          {/* saree skirt over the hips + pallu across the shoulder + bun */}
+          <mesh position={[0, 0.2, 0]} castShadow>
+            <boxGeometry args={[0.105, 0.18, 0.165]} />
+            <meshStandardMaterial color={dress} roughness={0.95} />
+          </mesh>
+          <mesh position={[-0.02, 0.38, 0.05]} rotation={[0.25, 0, 0]}>
+            <boxGeometry args={[0.115, 0.2, 0.045]} />
+            <meshStandardMaterial color={dress} roughness={0.95} />
+          </mesh>
+          <mesh position={[-0.045, 0.51, 0]}>
+            <sphereGeometry args={[0.026, 8, 6]} />
+            <meshStandardMaterial color="#2c2118" roughness={1} />
+          </mesh>
+        </>
+      )}
+      {backpack && (
+        <mesh position={[-0.085, 0.36, 0]} castShadow>
+          <boxGeometry args={[0.055, 0.14, 0.12]} />
+          <meshStandardMaterial color={backpack} roughness={0.85} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -98,6 +127,8 @@ export function Walker({
   pants,
   skin,
   scale = 1,
+  dress,
+  backpack,
 }: {
   path: XZ[];
   speed?: number;
@@ -106,6 +137,8 @@ export function Walker({
   pants?: string;
   skin?: string;
   scale?: number;
+  dress?: string;
+  backpack?: string;
 }) {
   const g = useRef<THREE.Group>(null);
   const { lengths, total } = useMemo(() => {
@@ -123,7 +156,8 @@ export function Walker({
 
   useFrame(({ clock }) => {
     if (!g.current) return;
-    let d = (clock.elapsedTime * speed + offset) % total;
+    // double-mod so negative offsets (trailing companions) stay on the loop
+    let d = (((clock.elapsedTime * speed + offset) % total) + total) % total;
     let i = 0;
     while (d > lengths[i]) {
       d -= lengths[i];
@@ -138,7 +172,16 @@ export function Walker({
 
   return (
     <group ref={g}>
-      <Person shirt={shirt} pants={pants} skin={skin} scale={scale} swing={speed * 7.5} phase={offset} />
+      <Person
+        shirt={shirt}
+        pants={pants}
+        skin={skin}
+        scale={scale}
+        swing={speed * 7.5}
+        phase={offset}
+        dress={dress}
+        backpack={backpack}
+      />
     </group>
   );
 }
@@ -196,12 +239,12 @@ export function Lounging({ p, ry = 0, suit = "#d23c6e", skin = SKIN[3] }: { p: V
 }
 
 /** Slow freestyle laps along x inside the pool. */
-export function Swimmer({ p, range = 2.6 }: { p: V3; range?: number }) {
+export function Swimmer({ p, range = 2.6, phase = 0 }: { p: V3; range?: number; phase?: number }) {
   const g = useRef<THREE.Group>(null);
   const la = useRef<THREE.Mesh>(null);
   const ra = useRef<THREE.Mesh>(null);
   useFrame(({ clock }) => {
-    const t = clock.elapsedTime * 0.5;
+    const t = clock.elapsedTime * 0.5 + phase;
     const dir = Math.sin(t) >= 0 ? 1 : -1;
     if (g.current) {
       g.current.position.x = p[0] + Math.sin(t) * range;

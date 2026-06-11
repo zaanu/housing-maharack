@@ -308,25 +308,69 @@ function Umbrella({ p, c = "#e2654f" }: { p: V3; c?: string }) {
 }
 
 function Pool({ p }: { p: V3 }) {
+  const LANES = 8;
+  const POOL_W = 9.4; // long axis (x)
+  const POOL_D = 4.1; // lanes run along x
+  const laneD = POOL_D / LANES;
   return (
     <group position={p}>
-      {/* timber deck */}
-      <Bx p={[0, 0.03, 0]} s={[10, 0.06, 6.4]} c={DECK} />
-      {Array.from({ length: 14 }, (_, i) => (
-        <Bx key={i} p={[-4.6 + i * 0.71, 0.062, 0]} s={[0.02, 0.004, 6.2]} c="#d3c5a6" />
+      {/* competition deck */}
+      <Bx p={[0, 0.03, 0]} s={[12, 0.06, 6.8]} c={DECK} />
+      {Array.from({ length: 16 }, (_, i) => (
+        <Bx key={i} p={[-5.5 + i * 0.74, 0.062, 0]} s={[0.02, 0.004, 6.6]} c="#d3c5a6" />
       ))}
       {/* basin walls + white coping */}
-      <Bx p={[0, 0.06, -1.92]} s={[7.6, 0.1, 0.16]} c="#ffffff" />
-      <Bx p={[0, 0.06, 1.92]} s={[7.6, 0.1, 0.16]} c="#ffffff" />
-      <Bx p={[-3.72, 0.06, 0]} s={[0.16, 0.1, 4.0]} c="#ffffff" />
-      <Bx p={[3.72, 0.06, 0]} s={[0.16, 0.1, 4.0]} c="#ffffff" />
-      <PoolWater w={7.3} d={3.7} />
-      {/* entry steps */}
-      {[0, 1, 2].map((i) => (
-        <Bx key={i} p={[-3.3 + i * 0.22, 0.04 - i * 0.016, 1.3]} s={[0.22, 0.03, 1.0]} c="#cfe9f2" />
+      <Bx p={[0, 0.06, -POOL_D / 2 - 0.07]} s={[POOL_W + 0.3, 0.1, 0.16]} c="#ffffff" />
+      <Bx p={[0, 0.06, POOL_D / 2 + 0.07]} s={[POOL_W + 0.3, 0.1, 0.16]} c="#ffffff" />
+      <Bx p={[-POOL_W / 2 - 0.07, 0.06, 0]} s={[0.16, 0.1, POOL_D + 0.4]} c="#ffffff" />
+      <Bx p={[POOL_W / 2 + 0.07, 0.06, 0]} s={[0.16, 0.1, POOL_D + 0.4]} c="#ffffff" />
+      <PoolWater w={POOL_W} d={POOL_D} />
+      {/* dark lane stripes on the bottom */}
+      {Array.from({ length: LANES }, (_, i) => (
+        <Bx
+          key={i}
+          p={[0, 0.042, -POOL_D / 2 + laneD * (i + 0.5)]}
+          s={[POOL_W * 0.94, 0.004, 0.07]}
+          c="#1f5f8a"
+        />
+      ))}
+      {/* floating lane ropes at the lane boundaries */}
+      {Array.from({ length: LANES - 1 }, (_, i) => (
+        <mesh
+          key={i}
+          position={[0, 0.058, -POOL_D / 2 + laneD * (i + 1)]}
+          rotation={[0, 0, Math.PI / 2]}
+        >
+          <cylinderGeometry args={[0.024, 0.024, POOL_W * 0.98, 8]} />
+          <meshStandardMaterial color={i % 2 ? "#e03c3c" : "#f3c014"} roughness={0.8} />
+        </mesh>
+      ))}
+      {/* starting blocks, one per lane */}
+      {Array.from({ length: LANES }, (_, i) => (
+        <group key={i} position={[-POOL_W / 2 - 0.32, 0.06, -POOL_D / 2 + laneD * (i + 0.5)]}>
+          <Bx p={[0, 0.1, 0]} s={[0.3, 0.2, 0.28]} c="#f4f1e8" />
+          <Bx p={[0.02, 0.215, 0]} s={[0.3, 0.035, 0.28]} c="#2e6bb0" rz={-0.12} />
+        </group>
+      ))}
+      {/* backstroke flag lines near both ends */}
+      {[-POOL_W / 2 + 1.4, POOL_W / 2 - 1.4].map((x) => (
+        <group key={x}>
+          {[-POOL_D / 2 - 0.5, POOL_D / 2 + 0.5].map((z) => (
+            <Bx key={z} p={[x, 0.3, z]} s={[0.04, 0.6, 0.04]} c={STEELD} />
+          ))}
+          <Bx p={[x, 0.58, 0]} s={[0.015, 0.015, POOL_D + 1.0]} c="#e9e3d4" />
+          {Array.from({ length: 9 }, (_, i) => (
+            <Bx
+              key={i}
+              p={[x, 0.53, -POOL_D / 2 + 0.1 + i * ((POOL_D - 0.2) / 8)]}
+              s={[0.02, 0.09, 0.12]}
+              c={i % 2 ? "#e03c3c" : "#2e6bb0"}
+            />
+          ))}
+        </group>
       ))}
       {/* ladder */}
-      <group position={[3.45, 0, -1.0]}>
+      <group position={[4.45, 0, -1.0]}>
         <Bx p={[0, 0.25, -0.12]} s={[0.025, 0.5, 0.025]} c="#c2c9cf" />
         <Bx p={[0, 0.25, 0.12]} s={[0.025, 0.5, 0.025]} c="#c2c9cf" />
         {[0.12, 0.26, 0.4].map((y) => (
@@ -340,11 +384,13 @@ function Pool({ p }: { p: V3 }) {
       <Lounger p={[2.7, 0.06, 2.6]} ry={-1.5} c="#5b8fa8" />
       <Lounging p={[-2.6, 0.17, 2.6]} ry={-1.5} suit="#d23c6e" />
       <Lounging p={[2.7, 0.17, 2.6]} ry={-1.5} suit="#2e6bb0" skin="#a8754f" />
-      <Swimmer p={[0, 0.05, -0.6]} range={2.6} />
+      {/* lap swimmers in their lanes */}
+      <Swimmer p={[0, 0.05, -0.77]} range={3.8} />
+      <Swimmer p={[0.4, 0.05, 0.77]} range={3.4} phase={2.4} />
       <Umbrella p={[-2.0, 0.06, 2.85]} c={CANOPY[0]} />
       <Umbrella p={[2.15, 0.06, 2.85]} c={CANOPY[1]} />
       {/* kids' splash pool */}
-      <group position={[4.6, 0, 1.9]}>
+      <group position={[4.9, 0, 2.7]}>
         <mesh position={[0, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
           <circleGeometry args={[0.9, 24]} />
           <meshStandardMaterial color="#5cc6e4" roughness={0.1} transparent opacity={0.9} />
@@ -656,13 +702,13 @@ export default function Site() {
       <Sitter p={[8.86, 0.2, 11.54]} ry={0.8 - Math.PI / 2} shirt="#8fa882" skin="#e0b08c" />
       <Sitter p={[-7.5, 0.2, 5.5]} ry={2.2 - Math.PI / 2} shirt="#7c5cff" />
       <Walker
-        path={[[12.5, 0], [8.8, 8.8], [0, 12.5], [-8.8, 8.8], [-12.5, 0], [-8.8, -8.8], [0, -12.5], [8.8, -8.8]]}
+        path={[[12.5, 0], [8.8, 8.8], [0, 12.5], [-7, 8], [-12.5, 0], [-8.8, -8.8], [0, -12.5], [8.8, -8.8]]}
         speed={0.5}
         shirt="#e2654f"
         pants="#3a4660"
       />
       <Walker
-        path={[[12.5, 0], [8.8, 8.8], [0, 12.5], [-8.8, 8.8], [-12.5, 0], [-8.8, -8.8], [0, -12.5], [8.8, -8.8]]}
+        path={[[12.5, 0], [8.8, 8.8], [0, 12.5], [-7, 8], [-12.5, 0], [-8.8, -8.8], [0, -12.5], [8.8, -8.8]]}
         speed={0.52}
         offset={38}
         shirt="#f3c014"
@@ -717,7 +763,7 @@ export default function Site() {
       <Car p={[-6.2, 0, 18.3]} color="#f3a33c" kind="sports" ry={0} lights={false} neon="#e84d8a" />
 
       {/* ---- amenity hover labels ---- */}
-      <SiteZone p={[-13, 0, 10]} s={[10.4, 1.2, 6.8]} name="Swimming Pool" detail={'60\' × 30\' deck pool · kids\' splash pool'} active={hover === "Swimming Pool"} onHover={setHover} />
+      <SiteZone p={[-13, 0, 10]} s={[12.4, 1.2, 7.2]} name="Olympic-Style Pool" detail={'8 lanes · starting blocks · kids\' splash pool'} active={hover === "Olympic-Style Pool"} onHover={setHover} />
       <SiteZone p={[-16, 0, -5]} s={[6.8, 1.6, 5]} name="Residents' Gym" detail="Cardio deck · free weights · yoga corner" active={hover === "Residents' Gym"} onHover={setHover} />
       <SiteZone p={[13, 0, 13]} s={[9, 1.4, 9]} name="Children's Playground" detail={'55\' × 55\' · rubber-padded play court'} active={hover === "Children's Playground"} onHover={setHover} />
       <SiteZone p={[0, 0, 26.2]} s={[6, 2.4, 2.2]} name="Main Entrance Gate" detail="24×7 security · guard cabin" active={hover === "Main Entrance Gate"} onHover={setHover} />

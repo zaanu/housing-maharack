@@ -374,6 +374,112 @@ function FloorBlock({
   );
 }
 
+/** Rooftop helipad with rim lights and a parked helicopter idling its rotor. */
+function Helipad({ p }: { p: [number, number, number] }) {
+  const { lit } = useSceneMode();
+  const rotor = useRef<THREE.Group>(null);
+  const tail = useRef<THREE.Mesh>(null);
+  useFrame((_, delta) => {
+    if (rotor.current) rotor.current.rotation.y += delta * 2.2;
+    if (tail.current) tail.current.rotation.x += delta * 4;
+  });
+  return (
+    <group position={p}>
+      {/* pad */}
+      <mesh position={[0, 0.09, 0]} castShadow>
+        <cylinderGeometry args={[2.5, 2.6, 0.18, 28]} />
+        <meshStandardMaterial color="#2e3338" roughness={0.9} transparent opacity={1} />
+      </mesh>
+      <mesh position={[0, 0.185, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[2.05, 2.25, 28]} />
+        <meshStandardMaterial color="#f4f1e8" roughness={0.8} transparent opacity={1} />
+      </mesh>
+      {/* H marking */}
+      {([[-0.5, 0.18, 1.5], [0.5, 0.18, 1.5]] as [number, number, number][]).map(([x, h, l], i) => (
+        <mesh key={i} position={[x, 0.19, 0]}>
+          <boxGeometry args={[0.2, 0.012, l]} />
+          <meshStandardMaterial color="#f4f1e8" roughness={0.8} transparent opacity={1} />
+        </mesh>
+      ))}
+      <mesh position={[0, 0.19, 0]}>
+        <boxGeometry args={[0.8, 0.012, 0.2]} />
+        <meshStandardMaterial color="#f4f1e8" roughness={0.8} transparent opacity={1} />
+      </mesh>
+      {/* rim lights */}
+      {Array.from({ length: 8 }, (_, i) => {
+        const a = (i / 8) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(a) * 2.35, 0.22, Math.sin(a) * 2.35]}>
+            <sphereGeometry args={[0.05, 8, 6]} />
+            <meshStandardMaterial
+              color={i % 2 ? "#37e668" : "#ffd24d"}
+              emissive={i % 2 ? "#37e668" : "#ffd24d"}
+              emissiveIntensity={lit ? 2 : 0.25}
+              transparent
+              opacity={1}
+            />
+          </mesh>
+        );
+      })}
+      {/* helicopter idling on the pad */}
+      <group position={[0.1, 0.18, 0]} rotation={[0, -0.5, 0]}>
+        {/* skids */}
+        {[-0.32, 0.32].map((z) => (
+          <mesh key={z} position={[0, 0.08, z]}>
+            <boxGeometry args={[1.5, 0.05, 0.06]} />
+            <meshStandardMaterial color="#46535f" roughness={0.5} metalness={0.4} transparent opacity={1} />
+          </mesh>
+        ))}
+        {/* fuselage + canopy + tail boom + fin */}
+        <mesh position={[0.1, 0.45, 0]} castShadow>
+          <boxGeometry args={[1.5, 0.55, 0.66]} />
+          <meshStandardMaterial color="#1d2733" roughness={0.35} metalness={0.4} transparent opacity={1} />
+        </mesh>
+        <mesh position={[0.78, 0.48, 0]}>
+          <boxGeometry args={[0.3, 0.4, 0.6]} />
+          <meshStandardMaterial color="#8fd0e8" roughness={0.15} metalness={0.3} transparent opacity={1} />
+        </mesh>
+        <mesh position={[0.1, 0.32, 0]}>
+          <boxGeometry args={[1.52, 0.08, 0.68]} />
+          <meshStandardMaterial color="#e84d8a" roughness={0.4} transparent opacity={1} />
+        </mesh>
+        <mesh position={[-1.05, 0.55, 0]}>
+          <boxGeometry args={[1.1, 0.14, 0.14]} />
+          <meshStandardMaterial color="#1d2733" roughness={0.35} metalness={0.4} transparent opacity={1} />
+        </mesh>
+        <mesh position={[-1.55, 0.75, 0]}>
+          <boxGeometry args={[0.24, 0.4, 0.06]} />
+          <meshStandardMaterial color="#e84d8a" roughness={0.4} transparent opacity={1} />
+        </mesh>
+        {/* main rotor (idling) + tail rotor */}
+        <group ref={rotor} position={[0.1, 0.78, 0]}>
+          <mesh>
+            <cylinderGeometry args={[0.06, 0.06, 0.1, 10]} />
+            <meshStandardMaterial color="#46535f" roughness={0.5} transparent opacity={1} />
+          </mesh>
+          <mesh position={[0, 0.04, 0]}>
+            <boxGeometry args={[2.6, 0.02, 0.12]} />
+            <meshStandardMaterial color="#23282e" roughness={0.6} transparent opacity={1} />
+          </mesh>
+          <mesh position={[0, 0.04, 0]} rotation={[0, Math.PI / 2, 0]}>
+            <boxGeometry args={[2.6, 0.02, 0.12]} />
+            <meshStandardMaterial color="#23282e" roughness={0.6} transparent opacity={1} />
+          </mesh>
+        </group>
+        <mesh ref={tail} position={[-1.55, 0.55, 0.05]}>
+          <boxGeometry args={[0.5, 0.06, 0.02]} />
+          <meshStandardMaterial color="#23282e" roughness={0.6} transparent opacity={1} />
+        </mesh>
+        {/* anti-collision blink shares the pad lights' rhythm via lit */}
+        <mesh position={[0.1, 0.86, 0]}>
+          <sphereGeometry args={[0.04, 8, 6]} />
+          <meshStandardMaterial color="#ff2d2d" emissive="#ff2d2d" emissiveIntensity={lit ? 1.6 : 0.3} transparent opacity={1} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
 function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: boolean }) {
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
@@ -408,6 +514,8 @@ function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: bo
         <cylinderGeometry args={[0.8, 0.8, 0.7, 20]} />
         <meshStandardMaterial color="#c5beb0" roughness={0.8} transparent opacity={1} />
       </mesh>
+      {/* residents' helipad */}
+      <Helipad p={[0.3, 0.24, -1.3]} />
       {/* glowing rooftop sign facing the entrance */}
       <group position={[0, 0.85, 4.6]}>
         {[-3.1, 3.1].map((x) => (

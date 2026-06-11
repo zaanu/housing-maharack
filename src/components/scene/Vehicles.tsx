@@ -7,6 +7,7 @@
 
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
+import { Html } from "@react-three/drei";
 import * as THREE from "three";
 import { Halo, LightCone } from "./glow";
 import { useSceneMode } from "./mode";
@@ -171,6 +172,78 @@ export default function Car({
           <planeGeometry args={[1.9, 1.1]} />
           <meshBasicMaterial color={neon} transparent opacity={0.4} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
+      )}
+      {wheels.map((w, i) => (
+        <Wheel key={i} p={w} innerRef={(g) => (wheelRefs.current[i] = g)} />
+      ))}
+    </group>
+  );
+}
+
+/** Indian school bus: yellow body, black safety stripes, window band with
+ * pillars, front-left door, spinning wheels. Nose points along +x. */
+export function Bus({
+  p = [0, 0, 0],
+  ry = 0,
+  speed = 0,
+  speedRef,
+  label,
+}: {
+  p?: V3;
+  ry?: number;
+  speed?: number;
+  speedRef?: React.RefObject<number>;
+  label?: string;
+}) {
+  const wheelRefs = useRef<(THREE.Group | null)[]>([]);
+  useFrame((_, delta) => {
+    const v = speedRef ? speedRef.current : speed;
+    if (v === 0) return;
+    for (const w of wheelRefs.current) {
+      if (w) w.rotation.y -= (v * delta) / WHEEL_R;
+    }
+  });
+  const { lit } = useSceneMode();
+  const YELLOW = "#f2b02c";
+  const wheels: V3[] = [
+    [1.05, WHEEL_R, 0.45],
+    [-1.05, WHEEL_R, 0.45],
+    [1.05, WHEEL_R, -0.45],
+    [-1.05, WHEEL_R, -0.45],
+  ];
+  return (
+    <group position={p} rotation={[0, ry, 0]}>
+      <Part p={[0, 0.52, 0]} s={[3.1, 0.62, 0.95]} c={YELLOW} metal={0.2} />
+      {/* window band with pillars + roof */}
+      <Part p={[-0.1, 0.78, 0]} s={[2.7, 0.24, 0.97]} c="#2a3340" metal={0.1} />
+      {Array.from({ length: 6 }, (_, i) => (
+        <Part key={i} p={[-1.25 + i * 0.46, 0.78, 0]} s={[0.05, 0.26, 0.98]} c={YELLOW} metal={0.2} />
+      ))}
+      <Part p={[0, 0.93, 0]} s={[3.05, 0.08, 0.9]} c={YELLOW} metal={0.2} />
+      {/* windshield + grille + black safety stripes */}
+      <Part p={[1.53, 0.72, 0]} s={[0.04, 0.36, 0.8]} c="#2a3340" metal={0.1} />
+      <Part p={[1.56, 0.4, 0]} s={[0.05, 0.18, 0.78]} c="#3a4148" />
+      <Part p={[0, 0.34, 0.477]} s={[3.05, 0.09, 0.012]} c="#23282e" />
+      <Part p={[0, 0.34, -0.477]} s={[3.05, 0.09, 0.012]} c="#23282e" />
+      {/* front-left passenger door */}
+      <Part p={[1.0, 0.5, 0.477]} s={[0.36, 0.56, 0.018]} c="#3a4148" />
+      {/* lights */}
+      <Part p={[1.57, 0.42, 0.32]} s={[0.04, 0.07, 0.12]} c="#fff3c4" glow={lit ? 2 : 0.4} />
+      <Part p={[1.57, 0.42, -0.32]} s={[0.04, 0.07, 0.12]} c="#fff3c4" glow={lit ? 2 : 0.4} />
+      <Part p={[-1.57, 0.42, 0.32]} s={[0.03, 0.07, 0.12]} c="#ff3b30" glow={lit ? 1.4 : 0.5} />
+      <Part p={[-1.57, 0.42, -0.32]} s={[0.03, 0.07, 0.12]} c="#ff3b30" glow={lit ? 1.4 : 0.5} />
+      {lit && speed !== 0 && (
+        <>
+          <Halo p={[1.6, 0.42, 0.32]} size={0.42} color="#ffe9b0" opacity={0.6} />
+          <Halo p={[1.6, 0.42, -0.32]} size={0.42} color="#ffe9b0" opacity={0.6} />
+        </>
+      )}
+      {label && (
+        <Html position={[0, 1.18, 0]} center distanceFactor={14} zIndexRange={[12, 0]}>
+          <p className="pointer-events-none select-none whitespace-nowrap rounded bg-[#23282e]/85 px-1.5 py-0.5 text-[8px] font-bold tracking-wide text-amber-300">
+            {label}
+          </p>
+        </Html>
       )}
       {wheels.map((w, i) => (
         <Wheel key={i} p={w} innerRef={(g) => (wheelRefs.current[i] = g)} />

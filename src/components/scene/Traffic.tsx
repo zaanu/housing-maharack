@@ -9,10 +9,11 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
-import Car, { type CarKind } from "./Vehicles";
+import Car, { Bus, type CarKind } from "./Vehicles";
 import { Halo, LightCone } from "./glow";
 import { Walker } from "./People";
 import { useSceneMode } from "./mode";
+import Roadside from "./Roadside";
 
 type V3 = [number, number, number];
 
@@ -181,10 +182,26 @@ function StreetLight({ p, side }: { p: V3; side: 1 | -1 }) {
   );
 }
 
+/** School bus cruising the public road. */
+function StreetBus({ lane, dir, speed, x0 }: { lane: number; dir: 1 | -1; speed: number; x0: number }) {
+  const g = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const range = 190;
+    let x = x0 + dir * speed * clock.elapsedTime;
+    x = ((((x + 95) % range) + range) % range) - 95;
+    g.current?.position.set(x, 0, lane);
+  });
+  return (
+    <group ref={g} position={[x0, 0, lane]}>
+      <Bus ry={dir > 0 ? 0 : Math.PI} speed={speed} label="MITTAL INTL SCHOOL" />
+    </group>
+  );
+}
+
 function Billboard() {
   const { lit } = useSceneMode();
   return (
-    <group position={[26, 0, 44]}>
+    <group position={[-44, 0, 44]}>
       {[-2.6, 2.6].map((x) => (
         <mesh key={x} position={[x, 1.6, 0]} castShadow>
           <boxGeometry args={[0.18, 3.2, 0.18]} />
@@ -254,6 +271,9 @@ export default function Traffic() {
       <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={6.4} x0={30} color="#7c5cff" kind="sedan" />
       <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={8.2} x0={100} color="#ff5a3c" kind="sports" neon="#7c5cff" />
       <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={5.1} x0={160} color="#4da6ff" kind="suv" />
+      {/* school buses doing their rounds */}
+      <StreetBus lane={ROAD_Z - 1.7} dir={-1} speed={4.6} x0={105} />
+      <StreetBus lane={ROAD_Z + 1.7} dir={1} speed={4.3} x0={-60} />
       <ArrivalCar />
 
       {/* parked along the kerb */}
@@ -269,6 +289,7 @@ export default function Traffic() {
       ))}
 
       <Billboard />
+      <Roadside />
 
       {/* sidewalk pedestrians */}
       <Walker
