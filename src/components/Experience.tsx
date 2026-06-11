@@ -88,7 +88,7 @@ export default function Experience() {
   const loading = !project || (use3D && !sceneReady);
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#dfeaf2]">
+    <div className="relative h-dvh w-full overflow-hidden bg-[#241a3e]">
       {/* 3D scene or 2D fallback */}
       {project && use3D && (
         <SceneErrorBoundary onError={() => setUse3D(false)}>

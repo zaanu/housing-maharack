@@ -9,6 +9,9 @@ import { useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
 import * as THREE from "three";
+import Car from "./Vehicles";
+import { Halo, LightCone } from "./glow";
+import { Walker, Sitter, Lounging, Swimmer, Person } from "./People";
 
 const ASPHALT = "#41464d";
 const KERB = "#d8d4c8";
@@ -122,6 +125,15 @@ function Palm({ p, h = 2.0, seed = 1 }: { p: V3; h?: number; seed?: number }) {
   }));
   const topX = bend * segs * segs * 0.155;
   const fronds = Array.from({ length: 9 }, (_, i) => (i / 9) * Math.PI * 2 + rnd(seed, i) * 0.5);
+  const crown = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    // breeze: the crown sways gently, each palm out of phase
+    if (crown.current) {
+      const t = clock.elapsedTime;
+      crown.current.rotation.z = Math.sin(t * 0.9 + seed * 2.1) * 0.05;
+      crown.current.rotation.x = Math.cos(t * 0.7 + seed * 1.3) * 0.04;
+    }
+  });
   return (
     <group position={p} rotation={[0, rnd(seed, 9) * Math.PI * 2, 0]}>
       {trunk.map((t, i) => (
@@ -130,7 +142,7 @@ function Palm({ p, h = 2.0, seed = 1 }: { p: V3; h?: number; seed?: number }) {
           <meshStandardMaterial color={PALM_TRUNK} roughness={1} />
         </mesh>
       ))}
-      <group position={[topX, h + 0.04, 0]}>
+      <group ref={crown} position={[topX, h + 0.04, 0]}>
         {fronds.map((a, i) => (
           <group key={i} rotation={[0, -a, 0]}>
             <Bx p={[0.3, 0.05, 0]} s={[0.55, 0.025, 0.15]} c={LEAFS[i % 2 ? 2 : 4]} rz={-0.25} shadow />
@@ -189,48 +201,10 @@ function Lamp({ p }: { p: V3 }) {
       </mesh>
       <mesh position={[0, 1.14, 0]}>
         <sphereGeometry args={[0.07, 10, 8]} />
-        <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={1.4} />
+        <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={2.2} />
       </mesh>
-    </group>
-  );
-}
-
-function Car({ p, c, ry = 0 }: { p: V3; c: string; ry?: number }) {
-  const wheels: V3[] = [
-    [0.55, 0.15, 0.43],
-    [-0.55, 0.15, 0.43],
-    [0.55, 0.15, -0.43],
-    [-0.55, 0.15, -0.43],
-  ];
-  return (
-    <group position={p} rotation={[0, ry, 0]}>
-      {/* body, hood and boot */}
-      <Bx p={[0, 0.33, 0]} s={[1.78, 0.26, 0.84]} c={c} shadow />
-      <Bx p={[0.74, 0.42, 0]} s={[0.32, 0.08, 0.8]} c={c} />
-      <Bx p={[-0.78, 0.42, 0]} s={[0.24, 0.08, 0.8]} c={c} />
-      {/* cabin with tinted glass + slanted windshields */}
-      <Bx p={[-0.08, 0.58, 0]} s={[0.78, 0.22, 0.72]} c="#27313a" opacity={0.92} />
-      <Bx p={[-0.08, 0.7, 0]} s={[0.82, 0.04, 0.76]} c={c} />
-      <Bx p={[0.42, 0.55, 0]} s={[0.34, 0.22, 0.7]} c="#27313a" rz={-0.55} opacity={0.92} />
-      <Bx p={[-0.56, 0.55, 0]} s={[0.3, 0.22, 0.7]} c="#27313a" rz={0.5} opacity={0.92} />
-      {/* lights */}
-      <Bx p={[0.9, 0.38, 0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={1.2} />
-      <Bx p={[0.9, 0.38, -0.26]} s={[0.04, 0.06, 0.14]} c="#fff3c4" glow={1.2} />
-      <Bx p={[-0.9, 0.38, 0.26]} s={[0.03, 0.05, 0.13]} c="#d33b30" glow={0.9} />
-      <Bx p={[-0.9, 0.38, -0.26]} s={[0.03, 0.05, 0.13]} c="#d33b30" glow={0.9} />
-      {/* wheels with hubs */}
-      {wheels.map((w, i) => (
-        <group key={i} position={w} rotation={[Math.PI / 2, 0, 0]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.15, 0.15, 0.12, 16]} />
-            <meshStandardMaterial color="#1d2126" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, w[2] > 0 ? 0.065 : -0.065, 0]}>
-            <cylinderGeometry args={[0.075, 0.075, 0.01, 12]} />
-            <meshStandardMaterial color="#b9bdc2" roughness={0.4} metalness={0.6} />
-          </mesh>
-        </group>
-      ))}
+      <Halo p={[0, 1.14, 0]} size={0.9} color="#ffce8a" opacity={0.5} />
+      <LightCone p={[0, 1.1, 0]} h={1.15} r={0.6} opacity={0.07} />
     </group>
   );
 }
@@ -264,8 +238,26 @@ function PoolWater({ w, d }: { w: number; d: number }) {
     <group>
       <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <planeGeometry args={[w, d]} />
-        <meshStandardMaterial color={WATER} roughness={0.08} metalness={0.15} transparent opacity={0.88} />
+        <meshStandardMaterial
+          color={WATER}
+          roughness={0.08}
+          metalness={0.15}
+          transparent
+          opacity={0.88}
+          emissive="#1f9cc4"
+          emissiveIntensity={0.55}
+        />
       </mesh>
+      {/* underwater lights glowing through the dusk */}
+      {[-2.2, 0, 2.2].map((x) => (
+        <group key={x}>
+          <mesh position={[x, 0.045, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <circleGeometry args={[0.55, 20]} />
+            <meshBasicMaterial color="#7fe6ff" transparent opacity={0.32} blending={THREE.AdditiveBlending} depthWrite={false} />
+          </mesh>
+          <Halo p={[x, 0.12, 0]} size={1.3} color="#5fd8f0" opacity={0.3} />
+        </group>
+      ))}
       <group ref={shimmer}>
         {[-0.9, 0.2, 1.1].map((z, i) => (
           <mesh key={i} position={[0, 0.058, z * (d / 3.6)]} rotation={[-Math.PI / 2, 0, 0.12 * i]}>
@@ -333,11 +325,14 @@ function Pool({ p }: { p: V3 }) {
           <Bx key={y} p={[0, y, 0]} s={[0.02, 0.02, 0.24]} c="#c2c9cf" />
         ))}
       </group>
-      {/* loungers + umbrellas along the far edge */}
+      {/* loungers + umbrellas along the far edge, a couple sunbathing */}
       <Lounger p={[-2.6, 0.06, 2.6]} ry={-1.5} c="#cd7f54" />
       <Lounger p={[-1.5, 0.06, 2.6]} ry={-1.5} c="#8fa882" />
       <Lounger p={[1.6, 0.06, 2.6]} ry={-1.5} c="#cd7f54" />
       <Lounger p={[2.7, 0.06, 2.6]} ry={-1.5} c="#5b8fa8" />
+      <Lounging p={[-2.6, 0.17, 2.6]} ry={-1.5} suit="#d23c6e" />
+      <Lounging p={[2.7, 0.17, 2.6]} ry={-1.5} suit="#2e6bb0" skin="#a8754f" />
+      <Swimmer p={[0, 0.05, -0.6]} range={2.6} />
       <Umbrella p={[-2.0, 0.06, 2.85]} c={CANOPY[0]} />
       <Umbrella p={[2.15, 0.06, 2.85]} c={CANOPY[1]} />
       {/* kids' splash pool */}
@@ -429,6 +424,26 @@ function Gym({ p }: { p: V3 }) {
   );
 }
 
+/** Swing hanging from the bar at y≈0.92, swinging along z. */
+function SwingSeat({ x, phase, withKid = false }: { x: number; phase: number; withKid?: boolean }) {
+  const pivot = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (pivot.current) pivot.current.rotation.x = Math.sin(clock.elapsedTime * 1.7 + phase) * (withKid ? 0.55 : 0.3);
+  });
+  return (
+    <group position={[x, 0.92, 0]} ref={pivot}>
+      <Bx p={[-0.12, -0.36, 0]} s={[0.02, 0.72, 0.02]} c="#888" />
+      <Bx p={[0.12, -0.36, 0]} s={[0.02, 0.72, 0.02]} c="#888" />
+      <Bx p={[0, -0.72, 0]} s={[0.3, 0.04, 0.14]} c={PLAY_YELLOW} />
+      {withKid && (
+        <group position={[0, -0.7, 0.02]} rotation={[0, Math.PI / 2, 0]} scale={0.62}>
+          <Person shirt={PLAY_RED} pants="#2e6bb0" skin="#cfa180" />
+        </group>
+      )}
+    </group>
+  );
+}
+
 function Playground() {
   return (
     <group position={[13, 0, 13]}>
@@ -458,13 +473,8 @@ function Playground() {
         <Bx p={[1.0, 0.45, 0]} s={[0.06, 0.95, 0.06]} c={PLAY_RED} rz={0.2} />
         <Bx p={[0.8, 0.45, 0]} s={[0.06, 0.95, 0.06]} c={PLAY_RED} rz={-0.2} />
         <Bx p={[0, 0.92, 0]} s={[2.0, 0.06, 0.06]} c={PLAY_YELLOW} />
-        {[-0.35, 0.35].map((x) => (
-          <group key={x}>
-            <Bx p={[x - 0.12, 0.55, 0]} s={[0.02, 0.7, 0.02]} c="#888" />
-            <Bx p={[x + 0.12, 0.55, 0]} s={[0.02, 0.7, 0.02]} c="#888" />
-            <Bx p={[x, 0.2, 0]} s={[0.3, 0.04, 0.14]} c={PLAY_YELLOW} />
-          </group>
-        ))}
+        <SwingSeat x={-0.35} phase={0} withKid />
+        <SwingSeat x={0.35} phase={1.9} />
       </group>
       <group position={[-0.6, 0, 1.7]}>
         <mesh position={[0, 0.12, 0]} castShadow>
@@ -488,6 +498,23 @@ function Playground() {
         <Bx p={[0, 0.3, 0]} s={[0.45, 0.12, 0.14]} c={PLAY_RED} />
         <Bx p={[0.2, 0.42, 0]} s={[0.1, 0.16, 0.1]} c={PLAY_YELLOW} />
       </group>
+      {/* kids chasing each other around the court */}
+      <Walker
+        path={[[3.6, 0], [2.5, 2.5], [0, 3.6], [-2.5, 2.5], [-3.6, 0], [-2.5, -2.5], [0, -3.6], [2.5, -2.5]]}
+        speed={1.25}
+        shirt={PLAY_BLUE}
+        pants={PLAY_RED}
+        scale={0.62}
+      />
+      <Walker
+        path={[[3.6, 0], [2.5, 2.5], [0, 3.6], [-2.5, 2.5], [-3.6, 0], [-2.5, -2.5], [0, -3.6], [2.5, -2.5]]}
+        speed={1.25}
+        offset={3}
+        shirt={PLAY_YELLOW}
+        pants="#2e6bb0"
+        skin="#a8754f"
+        scale={0.58}
+      />
     </group>
   );
 }
@@ -574,17 +601,24 @@ export default function Site() {
         <Bx p={[2.3, 0.85, 0]} s={[0.55, 1.7, 0.55]} c={PILLAR} shadow />
         <Bx p={[-2.3, 1.74, 0]} s={[0.68, 0.1, 0.68]} c={KERB} />
         <Bx p={[2.3, 1.74, 0]} s={[0.68, 0.1, 0.68]} c={KERB} />
+        {/* pillar lanterns */}
+        <Bx p={[-2.3, 1.85, 0]} s={[0.16, 0.12, 0.16]} c={GLOW} glow={2} />
+        <Bx p={[2.3, 1.85, 0]} s={[0.16, 0.12, 0.16]} c={GLOW} glow={2} />
+        <Halo p={[-2.3, 1.85, 0]} size={1.0} color="#ffce8a" opacity={0.55} />
+        <Halo p={[2.3, 1.85, 0]} size={1.0} color="#ffce8a" opacity={0.55} />
         <Bx p={[0, 1.98, 0]} s={[5.3, 0.38, 0.42]} c={STEELD} shadow />
+        {/* backlit sign glow */}
+        <Bx p={[0, 1.98, 0.22]} s={[4.6, 0.26, 0.02]} c="#ffb454" glow={1.1} />
         <Html position={[0, 1.98, 0.25]} center distanceFactor={16} zIndexRange={[25, 0]}>
           <div className="pointer-events-none select-none whitespace-nowrap rounded bg-transparent text-center">
             <p className="text-[11px] font-bold tracking-[0.25em] text-amber-100 drop-shadow">MAHARACK HEIGHTS</p>
           </div>
         </Html>
-        <group position={[-1.95, 0, 0]} rotation={[0, -0.95, 0]}>
+        <group position={[-1.95, 0, 0]} rotation={[0, -1.25, 0]}>
           <Bx p={[0.85, 0.6, 0]} s={[1.7, 1.1, 0.06]} c={STEELD} />
           <Bx p={[0.85, 0.62, 0.04]} s={[1.5, 0.9, 0.02]} c="#5b6a78" />
         </group>
-        <group position={[1.95, 0, 0]} rotation={[0, 0.95, 0]}>
+        <group position={[1.95, 0, 0]} rotation={[0, 1.25, 0]}>
           <Bx p={[-0.85, 0.6, 0]} s={[1.7, 1.1, 0.06]} c={STEELD} />
           <Bx p={[-0.85, 0.62, 0.04]} s={[1.5, 0.9, 0.02]} c="#5b6a78" />
         </group>
@@ -592,6 +626,12 @@ export default function Site() {
           <Bx p={[0, 0.48, 0]} s={[1.1, 0.96, 1.0]} c="#e9e3d4" shadow />
           <Bx p={[0, 0.62, 0.51]} s={[0.7, 0.4, 0.02]} c="#3d4a57" />
           <Bx p={[0, 1.0, 0]} s={[1.3, 0.08, 1.2]} c={STEELD} />
+          {/* cabin window lit from inside */}
+          <Bx p={[0, 0.62, 0.52]} s={[0.62, 0.32, 0.01]} c="#ffd9a0" glow={1.2} />
+        </group>
+        {/* security guard by the barrier */}
+        <group position={[2.9, 0, -1.3]} rotation={[0, Math.PI, 0]}>
+          <Person shirt="#2e3f55" pants="#1f2a38" />
         </group>
       </group>
 
@@ -602,6 +642,32 @@ export default function Site() {
       <Bench p={[9.0, 0, 11.4]} ry={0.8} />
       <Bench p={[17.6, 0, 13.6]} ry={-0.9} />
       <Bench p={[-7.5, 0, 5.5]} ry={2.2} />
+      {/* residents out for the evening */}
+      <Sitter p={[9.14, 0.2, 11.26]} ry={0.8 - Math.PI / 2} shirt="#cd7f54" />
+      <Sitter p={[8.86, 0.2, 11.54]} ry={0.8 - Math.PI / 2} shirt="#8fa882" skin="#e0b08c" />
+      <Sitter p={[-7.5, 0.2, 5.5]} ry={2.2 - Math.PI / 2} shirt="#7c5cff" />
+      <Walker
+        path={[[12.5, 0], [8.8, 8.8], [0, 12.5], [-8.8, 8.8], [-12.5, 0], [-8.8, -8.8], [0, -12.5], [8.8, -8.8]]}
+        speed={0.5}
+        shirt="#e2654f"
+        pants="#3a4660"
+      />
+      <Walker
+        path={[[12.5, 0], [8.8, 8.8], [0, 12.5], [-8.8, 8.8], [-12.5, 0], [-8.8, -8.8], [0, -12.5], [8.8, -8.8]]}
+        speed={0.52}
+        offset={38}
+        shirt="#f3c014"
+        pants="#6b3a4a"
+        skin="#8a5a3b"
+      />
+      {/* evening jogger looping the whole campus */}
+      <Walker
+        path={[[20, -2], [19, 13], [14, 20], [4, 22], [-8, 20], [-16, 17], [-21, 8], [-21, -4], [-14, -12], [0, -15], [12, -13], [20, -8]]}
+        speed={1.6}
+        shirt="#3ec6c0"
+        pants="#2e3b35"
+        skin="#a8754f"
+      />
 
       {/* ---- landscaping: palms along the drive, broadleaf trees around ---- */}
       {([
@@ -637,9 +703,9 @@ export default function Site() {
       {[-1, 0, 1].map((i) => (
         <Bx key={i} p={[-6.2, 0.02, 21.5 + i * 2.1]} s={[4.2, 0.004, 0.06]} c="#e8e6df" />
       ))}
-      <Car p={[-6.2, 0, 22.6]} c="#a83a3a" ry={0} />
-      <Car p={[-6.2, 0, 20.4]} c="#3b4a5f" ry={0} />
-      <Car p={[1.05, 0, 30.5]} c="#7c2f3e" ry={Math.PI / 2} />
+      <Car p={[-6.2, 0, 22.6]} color="#d23c6e" kind="sedan" ry={0} lights={false} />
+      <Car p={[-6.2, 0, 20.4]} color="#2f9e8f" kind="suv" ry={0} lights={false} />
+      <Car p={[-6.2, 0, 18.3]} color="#f3a33c" kind="sports" ry={0} lights={false} neon="#e84d8a" />
 
       {/* ---- amenity hover labels ---- */}
       <SiteZone p={[-13, 0, 10]} s={[10.4, 1.2, 6.8]} name="Swimming Pool" detail={'60\' × 30\' deck pool · kids\' splash pool'} active={hover === "Swimming Pool"} onHover={setHover} />

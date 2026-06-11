@@ -5,8 +5,10 @@
 // terracotta/sage accents, glowing pendants, plants. All primitives, so it
 // costs nothing to load and works until real GLB interiors are supplied.
 
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { useFrame } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
+import * as THREE from "three";
 
 // palette
 const WALL = "#f7f3ea";
@@ -25,7 +27,11 @@ const LEAF_LIGHT = "#6da25e";
 const POT = "#b9683f";
 const GLOW = "#ffc97a";
 const GLASS = "#bcd6e2";
+const NEON = "#3ec6c0"; // LED accent strips
+const MAGENTA = "#c44e9e";
+const FELT = "#2e7d4f";
 const BOOKS = ["#c96f4a", "#5b7d99", "#88a06b", "#d8b45a", "#9c6b8f"];
+const BOTTLES = ["#4fae8a", "#c9a13b", "#b1452f", "#5b7d99", "#8a5fa8"];
 
 type V3 = [number, number, number];
 
@@ -102,9 +108,9 @@ function RoomTip({ hover }: { hover: RoomHover | null }) {
   );
 }
 
-function B({ p, s, c, glow = 0 }: { p: V3; s: V3; c: string; glow?: number }) {
+function B({ p, s, c, glow = 0, rz = 0 }: { p: V3; s: V3; c: string; glow?: number; rz?: number }) {
   return (
-    <mesh position={p} castShadow>
+    <mesh position={p} rotation={[0, 0, rz]} castShadow>
       <boxGeometry args={s} />
       <meshStandardMaterial
         color={c}
@@ -252,8 +258,10 @@ function Sofa({ p }: { p: V3 }) {
       <B p={[-0.17, 0.29, 0]} s={[0.1, 0.24, 1.3]} c="#9aa2aa" />
       <B p={[0.33, 0.09, -0.44]} s={[0.45, 0.18, 0.42]} c={FABRIC} />
       <B p={[-0.05, 0.24, 0.42]} s={[0.18, 0.12, 0.26]} c={TERRA} />
-      <B p={[-0.05, 0.24, 0.05]} s={[0.18, 0.12, 0.26]} c={SAGE} />
-      <B p={[-0.05, 0.24, -0.32]} s={[0.18, 0.12, 0.26]} c={WHITE} />
+      <B p={[-0.05, 0.24, 0.05]} s={[0.18, 0.12, 0.26]} c={NEON} />
+      <B p={[-0.05, 0.24, -0.32]} s={[0.18, 0.12, 0.26]} c={MAGENTA} />
+      {/* throw blanket over the chaise */}
+      <B p={[0.33, 0.19, -0.44]} s={[0.3, 0.025, 0.28]} c={TERRA} />
     </group>
   );
 }
@@ -263,7 +271,16 @@ function CoffeeTable({ p }: { p: V3 }) {
     <group position={p}>
       <B p={[0, 0.13, 0]} s={[0.52, 0.025, 0.32]} c={OAK} />
       <B p={[0, 0.06, 0]} s={[0.08, 0.12, 0.08]} c={STEEL} />
+      {/* magazines, espresso cups, a small vase */}
       <B p={[0.1, 0.155, 0.04]} s={[0.12, 0.025, 0.09]} c={TERRA} />
+      <B p={[0.11, 0.175, 0.05]} s={[0.1, 0.015, 0.08]} c={MAGENTA} />
+      <Cyl p={[-0.12, 0.155, -0.06]} r={0.018} h={0.02} c={WHITE} />
+      <Cyl p={[-0.07, 0.155, -0.09]} r={0.018} h={0.02} c={WHITE} />
+      <Cyl p={[-0.15, 0.17, 0.07]} r={0.02} h={0.06} c={NEON} />
+      <mesh position={[-0.15, 0.22, 0.07]}>
+        <sphereGeometry args={[0.025, 8, 6]} />
+        <meshStandardMaterial color={MAGENTA} roughness={0.8} />
+      </mesh>
     </group>
   );
 }
@@ -297,7 +314,8 @@ function Dining({ p, pendant = true }: { p: V3; pendant?: boolean }) {
   );
 }
 
-/** Kitchen run along a back wall (-z) with backsplash, uppers and a fridge. */
+/** Kitchen run along a back wall (-z): backsplash, uppers with an LED strip,
+ * gas hob with burners, sink, fridge and a few bottles on the counter. */
 function Kitchen({ p, w = 2.4 }: { p: V3; w?: number }) {
   return (
     <group position={p}>
@@ -305,9 +323,27 @@ function Kitchen({ p, w = 2.4 }: { p: V3; w?: number }) {
       <B p={[0, 0.255, 0]} s={[w, 0.03, 0.4]} c={WHITE} />
       <B p={[0, 0.36, -0.17]} s={[w, 0.18, 0.03]} c="#e9ddc8" />
       <B p={[-w / 6, 0.56, -0.13]} s={[w * 0.55, 0.2, 0.12]} c={WHITE} />
+      {/* under-cabinet light strip */}
+      <B p={[-w / 6, 0.455, -0.08]} s={[w * 0.52, 0.008, 0.02]} c="#ffd9a0" glow={1.6} />
+      {/* hob with burners + steel hood */}
       <B p={[-0.45, 0.272, 0.02]} s={[0.32, 0.012, 0.24]} c={SCREEN} />
-      <Cyl p={[0.35, 0.29, -0.05]} r={0.025} h={0.07} c={STEEL} />
-      <B p={[w / 2 - 0.18, 0.33, 0]} s={[0.36, 0.66, 0.36]} c="#d9d6cf" />
+      {([[-0.52, -0.03], [-0.38, -0.03], [-0.52, 0.07], [-0.38, 0.07]] as [number, number][]).map(([x, z], i) => (
+        <Cyl key={i} p={[x, 0.282, z]} r={0.028} h={0.008} c="#46505a" />
+      ))}
+      <B p={[-0.45, 0.62, -0.08]} s={[0.26, 0.14, 0.2]} c={STEEL} />
+      <B p={[-0.45, 0.42, -0.02]} s={[0.18, 0.26, 0.12]} c={STEEL} />
+      {/* sink + faucet */}
+      <B p={[0.35, 0.262, 0.0]} s={[0.26, 0.015, 0.2]} c="#aeb6bd" />
+      <Cyl p={[0.35, 0.29, -0.08]} r={0.018} h={0.08} c={STEEL} />
+      <B p={[0.35, 0.33, -0.05]} s={[0.07, 0.014, 0.014]} c={STEEL} />
+      {/* fridge with handle */}
+      <B p={[w / 2 - 0.18, 0.33, 0]} s={[0.36, 0.66, 0.36]} c="#c8ccd2" />
+      <B p={[w / 2 - 0.18, 0.4, 0.185]} s={[0.02, 0.3, 0.012]} c={STEEL} />
+      {/* bottles + jar on the counter */}
+      {BOTTLES.slice(0, 3).map((c, i) => (
+        <Cyl key={i} p={[-0.05 + i * 0.07, 0.31, -0.1]} r={0.016} h={0.09} c={c} />
+      ))}
+      <Cyl p={[0.75, 0.295, -0.08]} r={0.03} h={0.05} c={TERRA} />
     </group>
   );
 }
@@ -318,6 +354,14 @@ function Island({ p, w = 1.1, stools = 2 }: { p: V3; w?: number; stools?: number
       <B p={[0, 0.12, 0]} s={[w, 0.24, 0.36]} c={OAK_DEEP} />
       <B p={[0, 0.255, 0]} s={[w + 0.06, 0.03, 0.42]} c={WHITE} />
       <B p={[-0.2, 0.28, 0]} s={[0.14, 0.025, 0.14]} c={SAGE} />
+      {/* fruit bowl */}
+      <Cyl p={[0.18, 0.282, 0]} r={0.05} h={0.022} c={WHITE} />
+      {([["#e2654f", -0.015], ["#f3c014", 0.018], ["#7ab648", 0.0]] as [string, number][]).map(([c, dx], i) => (
+        <mesh key={i} position={[0.18 + dx, 0.305, i * 0.02 - 0.02]}>
+          <sphereGeometry args={[0.018, 8, 6]} />
+          <meshStandardMaterial color={c} roughness={0.7} />
+        </mesh>
+      ))}
       {Array.from({ length: stools }, (_, i) => (
         <Cyl key={i} p={[-w / 4 + (i * w) / (2 * Math.max(stools - 1, 1)), 0.1, 0.32]} r={0.06} h={0.2} c={TERRA} />
       ))}
@@ -327,14 +371,33 @@ function Island({ p, w = 1.1, stools = 2 }: { p: V3; w?: number; stools?: number
   );
 }
 
-/** Media feature wall: oak panel, TV, low white unit; faces -x. */
+/** Media feature wall: oak panel, TV playing something, low white unit with
+ * an LED strip, speakers; faces -x. */
 function TvWall({ p, w = 1.5 }: { p: V3; w?: number }) {
+  const screen = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    // the TV is on: flickering scene cuts at dusk
+    const t = clock.elapsedTime;
+    if (screen.current) {
+      screen.current.emissiveIntensity = 0.7 + 0.3 * Math.sin(t * 2.1) * Math.sin(t * 5.3) + 0.12 * Math.sin(t * 17);
+      screen.current.emissive.setHSL(0.55 + 0.08 * Math.sin(t * 0.6), 0.55, 0.6);
+    }
+  });
   return (
     <group position={p}>
       <B p={[0.03, 0.34, 0]} s={[0.035, 0.68, w]} c={OAK_DEEP} />
-      <B p={[-0.0, 0.38, 0]} s={[0.025, 0.3, w * 0.52]} c={SCREEN} />
+      <mesh position={[0, 0.38, 0]} castShadow>
+        <boxGeometry args={[0.025, 0.3, w * 0.52]} />
+        <meshStandardMaterial ref={screen} color={SCREEN} roughness={0.35} emissive="#6fc3e8" emissiveIntensity={0.7} />
+      </mesh>
       <B p={[-0.06, 0.06, 0]} s={[0.16, 0.12, w * 0.8]} c={WHITE} />
       <B p={[-0.06, 0.14, w * 0.28]} s={[0.1, 0.04, 0.1]} c={SAGE} />
+      {/* LED strip under the console + floor speakers */}
+      <B p={[-0.13, 0.012, 0]} s={[0.015, 0.008, w * 0.76]} c={NEON} glow={1.8} />
+      <B p={[-0.04, 0.17, w * 0.44]} s={[0.09, 0.34, 0.09]} c="#23282e" />
+      <B p={[-0.04, 0.17, -w * 0.44]} s={[0.09, 0.34, 0.09]} c="#23282e" />
+      <B p={[-0.06, 0.28, w * 0.44]} s={[0.04, 0.04, 0.04]} c={NEON} glow={0.9} />
+      <B p={[-0.06, 0.28, -w * 0.44]} s={[0.04, 0.04, 0.04]} c={NEON} glow={0.9} />
     </group>
   );
 }
@@ -382,10 +445,135 @@ function Bath({ p }: { p: V3 }) {
     <group position={p}>
       <B p={[0, 0.11, -0.32]} s={[0.95, 0.22, 0.42]} c={WHITE} />
       <B p={[0, 0.18, -0.32]} s={[0.75, 0.04, 0.26]} c={GLASS} />
+      {/* vanity, mirror, towels */}
       <B p={[-0.3, 0.14, 0.28]} s={[0.42, 0.28, 0.28]} c={OAK} />
       <B p={[-0.3, 0.295, 0.28]} s={[0.44, 0.02, 0.3]} c={WHITE} />
+      <Cyl p={[-0.3, 0.315, 0.26]} r={0.06} h={0.025} c="#dfe7ea" />
       <B p={[0.25, 0.3, 0.34]} s={[0.18, 0.24, 0.02]} c={GLASS} />
       <B p={[0.28, 0.22, 0.2]} s={[0.04, 0.16, 0.02]} c={TERRA} />
+      <B p={[0.28, 0.22, 0.14]} s={[0.04, 0.14, 0.02]} c={NEON} />
+      {/* toilet */}
+      <B p={[0.32, 0.09, 0.0]} s={[0.16, 0.18, 0.14]} c={WHITE} />
+      <B p={[0.41, 0.2, 0.0]} s={[0.05, 0.18, 0.15]} c={WHITE} />
+      <Cyl p={[0.3, 0.185, 0.0]} r={0.075} h={0.018} c="#f4f1e9" />
+      {/* warm vanity glow */}
+      <B p={[-0.3, 0.46, 0.32]} s={[0.36, 0.02, 0.02]} c={GLOW} glow={1.3} />
+    </group>
+  );
+}
+
+/** Bedroom dresser with a round mirror. */
+function Dresser({ p }: { p: V3 }) {
+  return (
+    <group position={p}>
+      <B p={[0, 0.12, 0]} s={[0.5, 0.24, 0.18]} c={OAK} />
+      <B p={[-0.12, 0.12, 0.092]} s={[0.18, 0.18, 0.008]} c={OAK_DEEP} />
+      <B p={[0.12, 0.12, 0.092]} s={[0.18, 0.18, 0.008]} c={OAK_DEEP} />
+      <mesh position={[0, 0.42, -0.02]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.13, 0.13, 0.015, 20]} />
+        <meshStandardMaterial color={GLASS} roughness={0.15} metalness={0.4} />
+      </mesh>
+      <Cyl p={[-0.17, 0.28, 0]} r={0.025} h={0.08} c={MAGENTA} />
+    </group>
+  );
+}
+
+/** Wall clock; thin cylinder facing +z. */
+function WallClock({ p }: { p: V3 }) {
+  return (
+    <group position={p} rotation={[Math.PI / 2, 0, 0]}>
+      <Cyl p={[0, 0, 0]} r={0.07} h={0.015} c={WHITE} />
+      <Cyl p={[0, -0.01, 0]} r={0.012} h={0.012} c={STEEL} />
+    </group>
+  );
+}
+
+/** Tiered chandelier for the double-height penthouse void. */
+function Chandelier({ p }: { p: V3 }) {
+  return (
+    <group position={p}>
+      <B p={[0, -0.35, 0]} s={[0.014, 0.7, 0.014]} c={STEEL} />
+      <Cyl p={[0, -0.72, 0]} r={0.16} h={0.02} c={OAK_DEEP} />
+      {[0, 1, 2, 3, 4, 5].map((i) => {
+        const a = (i / 6) * Math.PI * 2;
+        return (
+          <mesh key={i} position={[Math.cos(a) * 0.13, -0.78, Math.sin(a) * 0.13]}>
+            <sphereGeometry args={[0.035, 8, 6]} />
+            <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={1.8} />
+          </mesh>
+        );
+      })}
+      <mesh position={[0, -0.85, 0]}>
+        <sphereGeometry args={[0.05, 10, 8]} />
+        <meshStandardMaterial color={GLOW} emissive={GLOW} emissiveIntensity={2} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Penthouse cocktail bar: counter, backlit bottle shelf, stools. */
+function Bar({ p }: { p: V3 }) {
+  return (
+    <group position={p}>
+      <B p={[0, 0.15, 0]} s={[1.1, 0.3, 0.28]} c={OAK_DEEP} />
+      <B p={[0, 0.31, 0]} s={[1.18, 0.025, 0.34]} c={WHITE} />
+      {/* neon kick strip */}
+      <B p={[0, 0.02, 0.15]} s={[1.1, 0.012, 0.01]} c={MAGENTA} glow={1.8} />
+      {/* backlit shelf with bottles */}
+      <B p={[0, 0.5, -0.32]} s={[1.0, 0.025, 0.16]} c={OAK} />
+      <B p={[0, 0.58, -0.39]} s={[1.0, 0.28, 0.015]} c="#7fd4ff" glow={0.7} />
+      {BOTTLES.map((c, i) => (
+        <Cyl key={i} p={[-0.4 + i * 0.2, 0.575, -0.32]} r={0.022} h={0.12} c={c} />
+      ))}
+      {[-0.3, 0.05, 0.4].map((x) => (
+        <group key={x}>
+          <Cyl p={[x, 0.12, 0.34]} r={0.055} h={0.04} c={TERRA} />
+          <Cyl p={[x, 0.05, 0.34]} r={0.018} h={0.12} c={STEEL} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Loft pool table with balls racked mid-game and a leaning cue. */
+function PoolTable({ p, ry = 0 }: { p: V3; ry?: number }) {
+  return (
+    <group position={p} rotation={[0, ry, 0]}>
+      <B p={[0, 0.26, 0]} s={[0.78, 0.07, 0.48]} c={OAK_DEEP} />
+      <B p={[0, 0.3, 0]} s={[0.66, 0.015, 0.36]} c={FELT} />
+      {([[-0.34, -0.19], [0.34, -0.19], [-0.34, 0.19], [0.34, 0.19]] as [number, number][]).map(([x, z], i) => (
+        <B key={i} p={[x, 0.13, z]} s={[0.07, 0.26, 0.07]} c={OAK} />
+      ))}
+      {([["#fcfaf4", 0.18, 0.02], ["#d8b45a", -0.08, -0.05], ["#b1452f", -0.13, 0.06], ["#2e6bb0", -0.05, 0.09], ["#1d2126", -0.1, 0.0]] as [string, number, number][]).map(([c, x, z], i) => (
+        <mesh key={i} position={[x, 0.322, z]}>
+          <sphereGeometry args={[0.016, 8, 6]} />
+          <meshStandardMaterial color={c} roughness={0.3} />
+        </mesh>
+      ))}
+      <B p={[0.42, 0.3, 0.0]} s={[0.02, 0.6, 0.02]} c={OAK} rz={0.3} />
+    </group>
+  );
+}
+
+/** Terrace hot tub, glowing in the evening. */
+function HotTub({ p }: { p: V3 }) {
+  const water = useRef<THREE.MeshStandardMaterial>(null);
+  useFrame(({ clock }) => {
+    if (water.current) water.current.emissiveIntensity = 0.5 + 0.15 * Math.sin(clock.elapsedTime * 2.4);
+  });
+  return (
+    <group position={p}>
+      <Cyl p={[0, 0.1, 0]} r={0.42} h={0.2} c="#e9e3d4" />
+      <mesh position={[0, 0.205, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.36, 22]} />
+        <meshStandardMaterial ref={water} color="#46c6e8" emissive="#46c6e8" emissiveIntensity={0.5} roughness={0.1} />
+      </mesh>
+      {[0.12, -0.15, 0.02].map((x, i) => (
+        <mesh key={i} position={[x, 0.215, i * 0.12 - 0.1]}>
+          <sphereGeometry args={[0.018, 6, 5]} />
+          <meshStandardMaterial color="#ffffff" transparent opacity={0.55} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -478,6 +666,7 @@ export default function UnitInterior({
       <Nightstand p={M(-3.18, 0, 0.52)} />
       <Nightstand p={M(-3.18, 0, 1.52)} />
       <Wardrobe p={M(-0.92, 0, 1.05)} w={1.2} alongX={false} />
+      <Dresser p={M(-1.6, 0, 0.32)} />
       <Art p={M(-3.42, 0.38, 1.0)} nx={sx} c={SAGE} />
       <Plant p={M(-1.15, 0, 1.72)} />
       <Curtains p={M(-2.2, 0, 1.9)} w={2.2} />
@@ -517,7 +706,8 @@ export default function UnitInterior({
       {/* ---- dining + sideboard ---- */}
       <Dining p={M(-0.18, 0, -1.0)} />
       <B p={M(-0.45, 0.14, -1.78)} s={[0.7, 0.28, 0.22]} c={OAK} />
-      <Art p={M(-0.45, 0.5, -1.9)} nz={sz} w={0.5} c={TERRA} />
+      <Art p={M(-0.45, 0.5, -1.9)} nz={sz} w={0.5} c={MAGENTA} />
+      <WallClock p={M(0.35, 0.42, -1.9)} />
 
       {/* ---- living (front-right): rug, sofa, media wall, shelf ---- */}
       <Rug p={M(1.25, 0, 0.95)} s={[2.5, 1.5]} />
@@ -662,11 +852,14 @@ export function PenthouseInterior({
       <FloorLamp p={M(-3.1, 0, 3.6)} />
       <Plant p={M(-3.05, 0, 0.85)} big />
       <Plant p={M(3.0, 0, -0.3)} />
-      {/* tall pendants dropping through the double-height void */}
-      <Pendant p={M(-1.3, 1.9, 2.9)} drop={1.1} />
-      <Pendant p={M(-0.7, 1.9, 2.5)} drop={0.9} />
-      {/* planters along the open terrace edge */}
-      {[-2.6, 0.2, 1.8].map((x) => (
+      {/* cocktail bar anchoring the family lounge */}
+      <Bar p={M(-0.6, 0, -1.05)} />
+      {/* chandelier + pendant dropping through the double-height void */}
+      <Chandelier p={M(-1.1, 2.0, 2.75)} />
+      <Pendant p={M(-0.3, 1.9, 2.3)} drop={0.9} />
+      {/* terrace hot tub + planters along the open edge */}
+      <HotTub p={M(2.5, 0, 3.4)} />
+      {[-2.6, 0.2].map((x) => (
         <Plant key={x} p={M(x, 0, 3.88)} />
       ))}
 
@@ -684,9 +877,14 @@ export function PenthouseInterior({
         </group>
         <Nightstand p={M(1.78, 0, -3.7)} />
         <Wardrobe p={M(-0.9, 0, -3.88)} w={1.5} />
+        <group position={M(-0.55, 0, -1.8)} rotation={[0, Math.PI, 0]}>
+          <Dresser p={[0, 0, 0]} />
+        </group>
         <Armchair p={M(-3.0, 0, -1.2)} c={SAGE} />
         <Desk p={M(-1.2, 0, 1.15)} />
         <Bookshelf p={M(-3.34, 0, 0.4)} w={1.2} />
+        {/* games corner overlooking the void */}
+        <PoolTable p={M(0.9, 0, 0.35)} />
         <Plant p={M(1.7, 0, 1.1)} big />
         <Plant p={M(3.1, 0, -1.0)} />
       </group>

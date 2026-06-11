@@ -13,6 +13,32 @@ type FloorMode = "normal" | "context" | "open" | "above";
 
 const damp = THREE.MathUtils.damp;
 
+const wrnd = (seed: number, i: number) => {
+  const v = Math.sin(seed * 37.13 + i * 13.7) * 43758.5453;
+  return v - Math.floor(v);
+};
+
+/** Warm/cool lit-window pattern, unique per floor, drawn once to a canvas. */
+function windowTexture(seed: number, rows: number): THREE.CanvasTexture {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 64 * rows;
+  const g = c.getContext("2d")!;
+  g.fillStyle = "#000000";
+  g.fillRect(0, 0, c.width, c.height);
+  const cols = 10;
+  for (let r = 0; r < rows; r++) {
+    for (let i = 0; i < cols; i++) {
+      const k = r * cols + i;
+      const lit = wrnd(seed, k) > 0.45;
+      if (!lit) continue;
+      g.fillStyle = wrnd(seed, 100 + k) > 0.2 ? "#ff9e42" : "#6fb6dc";
+      g.fillRect(i * 25.6 + 5, r * 64 + 16, 15, 32);
+    }
+  }
+  return new THREE.CanvasTexture(c);
+}
+
 // Faded-out floors must not intercept pointer events: THREE's raycaster
 // ignores `visible`, so swap in a no-op raycast while a floor is sliced away.
 const NOOP_RAYCAST = () => null;
@@ -165,6 +191,22 @@ function FloorBlock({
   const levels = floor.penthouse ? 2 : 1;
   const height = TOWER.floorHeight * levels;
 
+  const bodyH = height - TOWER.slabThickness;
+  const levels2 = floor.penthouse ? 2 : 1;
+  const windowsMat = useMemo(() => {
+    const tex = windowTexture(floor.number * 7 + 3, levels2);
+    return new THREE.MeshStandardMaterial({
+      color: "#0c1521",
+      emissive: "#ffffff",
+      emissiveMap: tex,
+      emissiveIntensity: 0.72,
+      roughness: 0.4,
+      transparent: true,
+      opacity: 1,
+      depthWrite: false,
+    });
+  }, [floor.number, levels2]);
+
   useFrame((_, delta) => {
     const t = TARGETS[mode];
     const g = groupRef.current;
@@ -174,6 +216,7 @@ function FloorBlock({
     if (structureMat.current) {
       structureMat.current.opacity = damp(structureMat.current.opacity, t.structure, 6, delta);
     }
+    windowsMat.opacity = (structureMat.current?.opacity ?? 1) * 0.92;
     if (g) {
       g.position.y = damp(g.position.y, baseY + t.lift, 6, delta);
       const visible =
@@ -181,8 +224,6 @@ function FloorBlock({
       g.visible = visible;
     }
   });
-
-  const bodyH = height - TOWER.slabThickness;
   const columns = useMemo(() => {
     const xs = [-TOWER.width / 2 + 0.2, 0, TOWER.width / 2 - 0.2];
     const zs = [-TOWER.depth / 2 + 0.2, TOWER.depth / 2 - 0.2];
@@ -233,6 +274,31 @@ function FloorBlock({
               opacity={0.55}
               depthWrite={false}
             />
+          </mesh>
+          {/* lit windows glowing through the dusk facade */}
+          <mesh position={[0, TOWER.slabThickness + bodyH / 2, TOWER.depth / 2 + 0.03]} material={windowsMat}>
+            <planeGeometry args={[TOWER.width - 0.5, bodyH - 0.12]} />
+          </mesh>
+          <mesh
+            position={[0, TOWER.slabThickness + bodyH / 2, -TOWER.depth / 2 - 0.03]}
+            rotation={[0, Math.PI, 0]}
+            material={windowsMat}
+          >
+            <planeGeometry args={[TOWER.width - 0.5, bodyH - 0.12]} />
+          </mesh>
+          <mesh
+            position={[TOWER.width / 2 + 0.03, TOWER.slabThickness + bodyH / 2, 0]}
+            rotation={[0, Math.PI / 2, 0]}
+            material={windowsMat}
+          >
+            <planeGeometry args={[TOWER.depth - 0.5, bodyH - 0.12]} />
+          </mesh>
+          <mesh
+            position={[-TOWER.width / 2 - 0.03, TOWER.slabThickness + bodyH / 2, 0]}
+            rotation={[0, -Math.PI / 2, 0]}
+            material={windowsMat}
+          >
+            <planeGeometry args={[TOWER.depth - 0.5, bodyH - 0.12]} />
           </mesh>
           {/* columns */}
           {columns.map(([x, z], i) => (
@@ -293,14 +359,19 @@ function FloorBlock({
 function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: boolean }) {
   const mat = useRef<THREE.MeshStandardMaterial>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const beacon = useRef<THREE.MeshStandardMaterial>(null);
   const baseY = floorY(baseFloorNumber);
 
-  useFrame((_, delta) => {
+  useFrame(({ clock }, delta) => {
     const target = sliced ? 0 : 1;
     if (mat.current) mat.current.opacity = damp(mat.current.opacity, target, 6, delta);
     if (groupRef.current) {
       groupRef.current.position.y = damp(groupRef.current.position.y, baseY + (sliced ? 1.4 : 0), 6, delta);
       groupRef.current.visible = (mat.current?.opacity ?? 1) > 0.03;
+    }
+    // slow aviation-beacon pulse
+    if (beacon.current) {
+      beacon.current.emissiveIntensity = 1 + Math.max(0, Math.sin(clock.elapsedTime * 2.4)) * 3;
     }
   });
 
@@ -317,6 +388,36 @@ function Roof({ baseFloorNumber, sliced }: { baseFloorNumber: number; sliced: bo
       <mesh position={[4.5, 0.5, 2]}>
         <cylinderGeometry args={[0.8, 0.8, 0.7, 20]} />
         <meshStandardMaterial color="#c5beb0" roughness={0.8} transparent opacity={1} />
+      </mesh>
+      {/* glowing rooftop sign facing the entrance */}
+      <group position={[0, 0.85, 4.6]}>
+        {[-3.1, 3.1].map((x) => (
+          <mesh key={x} position={[x, -0.3, -0.1]}>
+            <boxGeometry args={[0.08, 0.85, 0.08]} />
+            <meshStandardMaterial color="#46535f" roughness={0.6} metalness={0.4} transparent opacity={1} />
+          </mesh>
+        ))}
+        <mesh position={[0, 0, 0]}>
+          <boxGeometry args={[6.6, 0.7, 0.14]} />
+          <meshStandardMaterial color="#16121f" roughness={0.7} transparent opacity={1} />
+        </mesh>
+        <mesh position={[0, 0, 0.08]}>
+          <boxGeometry args={[6.3, 0.44, 0.02]} />
+          <meshStandardMaterial color="#ffb454" emissive="#ffb454" emissiveIntensity={1.3} transparent opacity={1} />
+        </mesh>
+        {/* Html ignores the fade animation — drop it as soon as the roof slices away */}
+        {!sliced && (
+          <Html position={[0, 0, 0.12]} center distanceFactor={18} zIndexRange={[18, 0]}>
+            <p className="pointer-events-none select-none whitespace-nowrap text-[13px] font-black tracking-[0.3em] text-[#3a1d08]">
+              MAHARACK
+            </p>
+          </Html>
+        )}
+      </group>
+      {/* blinking aviation beacon */}
+      <mesh position={[-5, 1.35, -2.5]}>
+        <sphereGeometry args={[0.09, 10, 8]} />
+        <meshStandardMaterial ref={beacon} color="#ff2d2d" emissive="#ff2d2d" emissiveIntensity={2} transparent opacity={1} />
       </mesh>
     </group>
   );
@@ -338,15 +439,15 @@ export default function Tower({
   const roofBase = Math.max(...floors.map((f) => f.number + (f.penthouse ? 2 : 1)), 2);
   return (
     <group>
-      {/* lawn */}
+      {/* lawn, warm in the low sun */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <circleGeometry args={[55, 64]} />
-        <meshStandardMaterial color="#8fb878" roughness={1} />
+        <meshStandardMaterial color="#83a85e" roughness={1} />
       </mesh>
       {/* paved plaza around the tower */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]} receiveShadow>
         <circleGeometry args={[14, 48]} />
-        <meshStandardMaterial color="#cfc9ba" roughness={1} />
+        <meshStandardMaterial color="#d3c5ac" roughness={1} />
       </mesh>
       <Site />
       {/* podium */}

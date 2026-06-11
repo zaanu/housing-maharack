@@ -7,6 +7,8 @@ import type CameraControlsImpl from "camera-controls";
 import type { PublicFloor, PublicHome } from "@/lib/types";
 import { floorY, penthouseRect, unitRect } from "@/lib/layout";
 import Tower from "./Tower";
+import Atmosphere from "./Atmosphere";
+import Traffic from "./Traffic";
 
 function CameraRig({
   selectedFloor,
@@ -118,7 +120,7 @@ function CameraRig({
       ref={controls}
       makeDefault
       minDistance={6}
-      maxDistance={60}
+      maxDistance={95}
       dollySpeed={0.35}
       maxPolarAngle={Math.PI / 2 - 0.04}
       smoothTime={0.5}
@@ -152,23 +154,29 @@ export default function BuildingScene({
       onPointerMissed={onClearSelection}
       className="touch-none"
     >
-      <color attach="background" args={["#dfeaf2"]} />
-      <fog attach="fog" args={["#dfeaf2", 75, 150]} />
-      <hemisphereLight args={["#cfe3f0", "#eadfca", 0.9]} />
-      <ambientLight intensity={0.2} color="#ffe7c4" />
+      <color attach="background" args={["#241a3e"]} />
+      <fog attach="fog" args={["#c96f86", 70, 210]} />
+      {/* golden-hour rig: magenta sky bounce, low warm sun, soft camera-side fill */}
+      <hemisphereLight args={["#ffb3bd", "#4a4060", 0.85]} />
+      <ambientLight intensity={0.42} color="#ffe3d2" />
       <directionalLight
-        position={[18, 28, 12]}
-        color="#fff0db"
-        intensity={1.6}
+        position={[-28, 14, -19]}
+        color="#ffa64d"
+        intensity={2.1}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-radius={6}
         shadow-bias={-0.0002}
-        shadow-camera-left={-30}
-        shadow-camera-right={30}
-        shadow-camera-top={30}
-        shadow-camera-bottom={-30}
+        shadow-camera-left={-45}
+        shadow-camera-right={45}
+        shadow-camera-top={45}
+        shadow-camera-bottom={-45}
       />
+      <directionalLight position={[26, 20, 30]} color="#ffc3a0" intensity={1.05} />
+      {/* soft top light so opened floors and interiors stay readable */}
+      <directionalLight position={[5, 60, 8]} color="#fff0e0" intensity={0.5} />
+      <Atmosphere />
+      <Traffic />
       <Tower
         floors={floors}
         selectedFloorNumber={selectedFloor?.number ?? null}
