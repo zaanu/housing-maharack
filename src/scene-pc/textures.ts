@@ -133,20 +133,20 @@ export function skyTexture(device: pc.GraphicsDevice, mode: string, theme: Theme
     const el = Math.asin(Math.max(-1, Math.min(1, sy))); // -PI/2..PI/2
     const u = ((az + Math.PI) / (2 * Math.PI)) * w;
     const v = (0.5 - el / Math.PI) * h;
-    const R = h * (0.5 + theme.sky.bloom);
+    const R = h * (0.16 + theme.sky.bloom * 0.3);
     for (const xo of [-w, 0, w]) {
       const halo = g.createRadialGradient(u + xo, v, 0, u + xo, v, R);
-      halo.addColorStop(0, hexWithAlpha(theme.sky.sunTint, 0.55 * theme.sky.bloom + 0.18));
-      halo.addColorStop(0.4, hexWithAlpha(theme.sky.sunTint, 0.22 * theme.sky.bloom));
+      halo.addColorStop(0, hexWithAlpha(theme.sky.sunTint, 0.4 * theme.sky.bloom + 0.14));
+      halo.addColorStop(0.45, hexWithAlpha(theme.sky.sunTint, 0.16 * theme.sky.bloom));
       halo.addColorStop(1, hexWithAlpha(theme.sky.sunTint, 0));
       g.fillStyle = halo;
       g.fillRect(0, 0, w, h);
       // horizon haze band brightening toward the sun azimuth
-      const band = g.createRadialGradient(u + xo, horizonY, 0, u + xo, horizonY, w * 0.45);
-      band.addColorStop(0, hexWithAlpha(theme.sky.sunTint, 0.3 * theme.sky.bloom));
+      const band = g.createRadialGradient(u + xo, horizonY, 0, u + xo, horizonY, w * 0.3);
+      band.addColorStop(0, hexWithAlpha(theme.sky.sunTint, 0.22 * theme.sky.bloom));
       band.addColorStop(1, hexWithAlpha(theme.sky.sunTint, 0));
       g.fillStyle = band;
-      g.fillRect(0, horizonY - h * 0.12, w, h * 0.24);
+      g.fillRect(0, horizonY - h * 0.08, w, h * 0.16);
     }
     // stars
     if (theme.stars) {

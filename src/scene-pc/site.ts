@@ -6,7 +6,7 @@
 
 import * as pc from "playcanvas";
 import { makeMaterial, glassMaterial } from "./materials";
-import { causticsTexture } from "./textures";
+import { causticsTexture, glowTexture } from "./textures";
 import { addWalker, addSitter, addLounging, addSwimmer, buildPerson } from "./people";
 import { buildCar, addHalo } from "./vehicles";
 import { rnd, type V3 } from "./builder";
@@ -18,9 +18,9 @@ const PILLAR = "#9aa3ab";
 const STEELD = "#46535f";
 const TRUNK = "#5d4a35";
 const PALM_TRUNK = "#7d654a";
-const PLAY_RED = "#bc4a40";
-const PLAY_YELLOW = "#d9af34";
-const PLAY_BLUE = "#3a6a99";
+const PLAY_RED = "#a35a4e";
+const PLAY_YELLOW = "#bfa05a";
+const PLAY_BLUE = "#4a6b8a";
 const GLOW = "#ffd9a0";
 const LEAFS = ["#466032", "#52713c", "#3d5a2e", "#5b7a42", "#4a6837"];
 
@@ -42,7 +42,7 @@ export class Site {
     );
     if (!skip.has("grounds")) this.buildGrounds();
     if (!skip.has("gate")) this.buildWallAndGate();
-    if (!skip.has("pool")) this.buildPool([-13, 0, 10]);
+    if (!skip.has("pool")) this.buildPool([-13, 0.02, 10]);
     if (!skip.has("gym")) this.buildGym([-16, 0, -5]);
     if (!skip.has("playground")) this.buildPlayground([13, 0, 13]);
     if (!skip.has("landscaping")) this.buildLandscaping();
@@ -75,7 +75,7 @@ export class Site {
     const g = this.root;
 
     const lawn = makeMaterial(this.ctx.store, {
-      color: "#b9d3a4",
+      color: "#a9c29a",
       rough: 1,
       pbr: { asset: "leafy_grass", tiling: [30, 30], arm: false, normalScale: 0.8 },
     });
@@ -83,7 +83,7 @@ export class Site {
     lawnE.render!.meshInstances[0].castShadow = false;
 
     const plaza = makeMaterial(this.ctx.store, {
-      color: "#eee9dd",
+      color: "#ffffff",
       pbr: { asset: "granite_tile", tiling: [12, 12], normalScale: 0.8 },
     });
     b.ent("plaza", b.cylinder(48), plaza, { parent: g, p: [0, -0.044, 0], s: [28, 0.12, 28] });
@@ -122,6 +122,27 @@ export class Site {
     mkPath([-11.4, 0.012, 7.4], 1.3, 5.4, 37);
     mkPath([10.9, 0.012, 10.9], 1.3, 6.2, -45);
     mkPath([-12.4, 0.012, -2.6], 1.2, 4.6, 72);
+
+    // arrival court: planters around the drop-off + bollard lights
+    const planterStone = makeMaterial(this.ctx.store, { color: "#9b948a", rough: 0.7 });
+    const hedgeMat = makeMaterial(this.ctx.store, { color: LEAFS[1], rough: 1 });
+    for (const a of [-150, -110, -70, 110, 150]) {
+      const rad = (a * Math.PI) / 180;
+      const px = Math.sin(rad) * 10.4;
+      const pz = 9 + Math.cos(rad) * 4.6;
+      const pot = b.group("plaza-planter", g, [px, 0, pz]);
+      b.ent("stone", b.cylinder(14), planterStone, { parent: pot, p: [0, 0.17, 0], s: [0.74, 0.34, 0.74], cast: true });
+      b.ent("hedge", b.canopy(a), hedgeMat, { parent: pot, p: [0, 0.46, 0], s: [0.74, 0.5, 0.74], cast: true });
+    }
+    const bollardMat = makeMaterial(this.ctx.store, { color: "#3a3f46", rough: 0.4, metal: 0.6 });
+    const bollardGlow = makeMaterial(this.ctx.store, { color: GLOW, emissive: GLOW });
+    this.ctx.litMat(bollardGlow, 1.8, 0.1);
+    for (const z of [8.2, 11.4, 14.6]) {
+      for (const x of [-2.5, 2.5]) {
+        b.ent("bollard", b.cylinder(8), bollardMat, { parent: g, p: [x, 0.21, z], s: [0.09, 0.42, 0.09], cast: true });
+        b.ent("bollard-top", b.cylinder(8), bollardGlow, { parent: g, p: [x, 0.43, z], s: [0.075, 0.03, 0.075] });
+      }
+    }
   }
 
   /* --------------------------- wall + gate ------------------------------ */
@@ -237,7 +258,7 @@ export class Site {
     // deck strips around the basin (uniform plank scale per strip)
     const deckMat = (tw: number, td: number) =>
       makeMaterial(ctx.store, {
-        color: "#cbb68e",
+        color: "#d8c8a2",
         pbr: { asset: "brown_planks_09", tiling: [tw * 0.42, td * 0.42], normalScale: 0.7 },
       });
     const nsW = DECK_W;
@@ -291,8 +312,8 @@ export class Site {
       const e = b.ent("caustics", b.plane(), m, { parent: g, p: [0, y, 0], s: [PW, 1, PD], receive: false });
       return { m, e };
     };
-    const c1 = mkCaustic(FLOOR_Y + 0.012, 0.3, [5, 2.4]);
-    const c2 = mkCaustic(FLOOR_Y + 0.024, 0.22, [4.2, 2]);
+    const c1 = mkCaustic(FLOOR_Y + 0.012, 0.24, [2, 0.95]);
+    const c2 = mkCaustic(FLOOR_Y + 0.024, 0.17, [1.6, 0.8]);
     ctx.onUpdate((dt) => {
       c1.m.emissiveMapOffset.x += dt * 0.022;
       c1.m.emissiveMapOffset.y += dt * 0.013;
@@ -301,6 +322,10 @@ export class Site {
       c1.m.update();
       c2.m.update();
     });
+
+    // depth read: the west half of the basin shades toward deep blue
+    const deepTint = makeMaterial(ctx.store, { color: "#0d3a52", opacity: 0.35 });
+    b.box("deep-tint", deepTint, { parent: g, p: [-PW / 4, FLOOR_Y + 0.006, 0], s: [PW / 2, 0.004, PD] });
 
     // underwater lights
     const uw = makeMaterial(ctx.store, { color: "#dffaff", emissive: "#9fe8ff" });
@@ -311,11 +336,11 @@ export class Site {
 
     // transparent rippling water with sky reflections
     const water = new pc.StandardMaterial();
-    water.diffuse = new pc.Color(0.16, 0.49, 0.62);
-    water.gloss = 0.96;
+    water.diffuse = new pc.Color(0.13, 0.44, 0.58);
+    water.gloss = 0.97;
     water.useMetalness = true;
-    water.metalness = 0.35;
-    water.opacity = 0.52;
+    water.metalness = 0.5;
+    water.opacity = 0.62;
     water.blendType = pc.BLEND_NORMAL;
     water.depthWrite = false;
     water.emissive = new pc.Color(0.12, 0.43, 0.55);
@@ -323,11 +348,11 @@ export class Site {
     void ctx.store.image("/textures/waternormals.jpg", false).then((tex) => {
       water.normalMap = tex;
       water.normalMapTiling = new pc.Vec2(3.4, 1.6);
-      water.bumpiness = 0.55;
+      water.bumpiness = 0.85;
       water.update();
     });
     water.update();
-    ctx.litMat(water, 0.35, 0.08);
+    ctx.litMat(water, 0.16, 0.06);
     b.ent("water", b.plane(), water, { parent: g, p: [0, WATER_Y, 0], s: [PW, 1, PD], receive: false });
     ctx.onUpdate((dt) => {
       water.normalMapOffset.x += dt * 0.02;
@@ -431,8 +456,8 @@ export class Site {
         cast: true,
       });
     };
-    umbrella([-2.0, deckY, 2.95], "#c96a52");
-    umbrella([2.15, deckY, 2.95], "#d9af34");
+    umbrella([-2.0, deckY, 2.95], "#e4dcc8");
+    umbrella([2.15, deckY, 2.95], "#41597a");
 
     // swimmers
     addSwimmer(this.ctx, g, [0, WATER_Y - 0.015, -0.77], 3.6);
@@ -527,7 +552,7 @@ export class Site {
     const ctx = this.ctx;
     const b = ctx.builder;
     const g = b.group("playground", this.root, at);
-    b.ent("pad", b.cylinder(40), makeMaterial(ctx.store, { color: "#41617e", rough: 1 }), {
+    b.ent("pad", b.cylinder(40), makeMaterial(ctx.store, { color: "#566b7e", rough: 1 }), {
       parent: g,
       p: [0, 0.015, 0],
       s: [8.8, 0.03, 8.8],
@@ -714,7 +739,27 @@ export class Site {
     const led = makeMaterial(ctx.store, { color: GLOW, emissive: GLOW });
     ctx.litMat(led, 2.6, 0.1);
     b.box("led", led, { parent: g, p: [0.18, 1.135, 0], s: [0.18, 0.008, 0.07] });
-    addHalo(ctx, g, [0.18, 1.12, 0], 0.8, "#ffce8a", 0.4);
+    addHalo(ctx, g, [0.18, 1.12, 0], 1.2, "#ffce8a", 0.5);
+    this.lightPool(g, [0.18, 0.02, 0], 2.6);
+  }
+
+  /** Soft warm pool of light on the ground beneath a lamp (after dark). */
+  lightPool(parent: pc.Entity, p: V3, size: number) {
+    const b = this.ctx.builder;
+    const m = new pc.StandardMaterial();
+    m.useLighting = false;
+    m.diffuse = new pc.Color(0, 0, 0);
+    m.emissive = new pc.Color(1, 0.78, 0.5);
+    m.emissiveIntensity = 0.55;
+    m.emissiveMap = glowTexture(this.ctx.app.graphicsDevice);
+    m.opacity = 0.3;
+    m.opacityMap = glowTexture(this.ctx.app.graphicsDevice);
+    m.blendType = pc.BLEND_ADDITIVE;
+    m.depthWrite = false;
+    m.update();
+    const e = b.ent("light-pool", b.plane(), m, { parent, p, s: [size, 1, size], receive: false });
+    this.ctx.litEnt(e);
+    return e;
   }
 
   private bench(parent: pc.Entity, p: V3, ry: number) {
@@ -738,7 +783,7 @@ export class Site {
       ).split(",")
     );
     const palms: [number, number][] = skip.has("palms") ? [] : [
-      [-4.8, 16], [4.8, 16], [-4.8, 19.5], [4.8, 19.5], [-4.8, 23], [4.8, 23],
+      [-4.8, 16], [4.8, 16], [-9.4, 19.5], [4.8, 19.5], [-9.4, 23.6], [4.8, 23],
       [9.5, 13.5], [17, 16.2], [17.5, 10], [-20, 22], [20, 23],
       [-7.6, 12.5], [-19.5, 14.5], [-7, 8],
     ];

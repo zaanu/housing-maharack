@@ -5,7 +5,7 @@
 
 import * as pc from "playcanvas";
 import { makeMaterial, glassMaterial } from "./materials";
-import { cloudTexture, skylineWindowTexture } from "./textures";
+import { cloudTexture, skylineWindowTexture, glowTexture } from "./textures";
 import { addWalker } from "./people";
 import { buildCar, addHalo, type CarHandle } from "./vehicles";
 import { rnd, damp, type V3 } from "./builder";
@@ -79,6 +79,21 @@ class PathCurve {
     const yawDeg = (Math.atan2(-(b.z - a.z), b.x - a.x) * 180) / Math.PI;
     return { p, yawDeg };
   }
+}
+
+function lightPoolMat(ctx: SceneContext): pc.StandardMaterial {
+  const m = new pc.StandardMaterial();
+  m.useLighting = false;
+  m.diffuse = new pc.Color(0, 0, 0);
+  m.emissive = new pc.Color(1, 0.78, 0.5);
+  m.emissiveIntensity = 0.5;
+  m.emissiveMap = glowTexture(ctx.app.graphicsDevice);
+  m.opacity = 0.26;
+  m.opacityMap = glowTexture(ctx.app.graphicsDevice);
+  m.blendType = pc.BLEND_ADDITIVE;
+  m.depthWrite = false;
+  m.update();
+  return m;
 }
 
 export class Environment {
@@ -240,6 +255,8 @@ export class Environment {
     // parked along the kerb
     buildCar(ctx, g, { p: [16, 0, ROAD_Z - 2.9], ry: 180, color: "#b5954a", kind: "sedan", lights: false });
     buildCar(ctx, g, { p: [-22, 0, ROAD_Z + 2.9], ry: 0, color: "#46896e", kind: "suv", lights: false });
+    buildCar(ctx, g, { p: [34, 0, ROAD_Z + 2.9], ry: 0, color: "#7a808a", kind: "sedan", lights: false });
+    buildCar(ctx, g, { p: [-44, 0, ROAD_Z - 2.9], ry: 180, color: "#5d6b7a", kind: "suv", lights: false });
 
     // hero arrival: street → barrier stop → driveway tour → exits west
     const curveIn = new PathCurve([
@@ -299,6 +316,22 @@ export class Environment {
       b.ent("pole", b.cylinder(8), poleMat, { parent: lg, p: [0, 1.2, 0], s: [0.09, 2.4, 0.09], cast: true });
       b.box("head", lampHead, { parent: lg, p: [0, 2.42, side * 0.75], s: [0.3, 0.07, 0.16] });
       addHalo(ctx, lg, [0, 2.42, side * 0.75], 1.5, "#ffce8a", 0.45);
+      const poolM = new pc.StandardMaterial();
+      poolM.useLighting = false;
+      poolM.diffuse = new pc.Color(0, 0, 0);
+      poolM.emissive = new pc.Color(1, 0.78, 0.5);
+      poolM.emissiveIntensity = 0.5;
+      poolM.emissiveMap = cloudTexture(ctx.app.graphicsDevice); // soft blob is fine here
+      poolM.opacity = 0.0;
+      poolM.update();
+      void poolM;
+      const lp = b.ent("light-pool", b.plane(), lightPoolMat(ctx), {
+        parent: lg,
+        p: [0, 0.03, side * 0.75],
+        s: [4.4, 1, 4.4],
+        receive: false,
+      });
+      ctx.litEnt(lp);
     };
     for (const x of [-36, -12, 12, 36]) mkStreetLight(x, ROAD_Z - 3.9, 1);
     for (const x of [-24, 0, 24, 48]) mkStreetLight(x, ROAD_Z + 3.9, -1);
@@ -361,8 +394,8 @@ export class Environment {
       m.diffuse = new pc.Color(0, 0, 0);
       m.emissive = new pc.Color(1, 1, 1);
       m.emissiveMap = winTex;
-      m.emissiveMapTiling = new pc.Vec2(Math.round(blk.w / 3), Math.round(blk.h / 2.4));
-      m.opacity = 0.85;
+      m.emissiveMapTiling = new pc.Vec2(Math.round(blk.w / 2.2), Math.round(blk.h / 1.4));
+      m.opacity = 0.55;
       m.blendType = pc.BLEND_ADDITIVE;
       m.depthWrite = false;
       m.update();
@@ -414,8 +447,8 @@ export class Environment {
     this.skylineBoxMats[1].diffuse = new pc.Color().fromString(theme.skylineB);
     this.skylineBoxMats[1].update();
     for (const m of this.skylineWindowMats) {
-      m.opacity = 0.85 * theme.skylineWindows;
-      m.emissiveIntensity = theme.skylineWindows > 0 ? 1.4 : 0;
+      m.opacity = 0.55 * theme.skylineWindows;
+      m.emissiveIntensity = theme.skylineWindows > 0 ? 1.0 : 0;
       m.update();
     }
     for (const m of this.cloudMats) {

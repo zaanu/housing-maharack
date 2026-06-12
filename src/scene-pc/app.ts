@@ -157,6 +157,8 @@ export class SceneApp {
     app.start();
     self.resize();
     cb.onReady({ deviceType: self.deviceType });
+    // test/debug handle (also used by the Playwright suite)
+    (window as unknown as { __scene?: SceneApp }).__scene = self;
     return self;
   }
 
@@ -179,6 +181,12 @@ export class SceneApp {
     cf.ssao.power = 4;
     cf.bloom.intensity = q.bloom ? THEMES[this.mode].bloom : 0;
     cf.bloom.blurLevel = 7;
+    const grade = THEMES[this.mode].grade;
+    cf.grading.enabled = true;
+    cf.grading.tint = new pc.Color(grade.tint[0], grade.tint[1], grade.tint[2]);
+    cf.grading.saturation = grade.saturation;
+    cf.grading.contrast = grade.contrast;
+    cf.grading.brightness = grade.brightness;
     cf.vignette.intensity = 0.5;
     cf.vignette.inner = 0.6;
     cf.vignette.outer = 1.7;
@@ -287,6 +295,8 @@ export class SceneApp {
   setSelection(floor: PublicFloor | null, homeId: string | null) {
     this.tower?.setSelection(floor?.number ?? null, homeId);
     this.camera.setCloseRange(floor != null);
+    // neutral fill so open-floor interiors stay readable in any mode
+    this.lighting.top.light!.intensity = floor != null ? 0.55 : THEMES[this.mode].top.intensity;
     const portrait = this.canvas.clientHeight > this.canvas.clientWidth * 1.1;
     if (floor == null) {
       if (this.camera.interacted) this.camera.flyTo(PRESETS.aerial);
@@ -335,6 +345,11 @@ export class SceneApp {
     this.env?.applyMode(mode);
     if (this.cameraFrame) {
       this.cameraFrame.bloom.intensity = QUALITY[this.quality].bloom ? THEMES[mode].bloom : 0;
+      const grade = THEMES[mode].grade;
+      this.cameraFrame.grading.tint = new pc.Color(grade.tint[0], grade.tint[1], grade.tint[2]);
+      this.cameraFrame.grading.saturation = grade.saturation;
+      this.cameraFrame.grading.contrast = grade.contrast;
+      this.cameraFrame.grading.brightness = grade.brightness;
       this.cameraFrame.update();
     }
   }

@@ -39,7 +39,7 @@ export class LightingRig {
       shadowResolution,
       shadowBias: 0.18,
       normalOffsetBias: 0.06,
-      shadowDistance: 110,
+      shadowDistance: 160,
       shadowType: pc.SHADOW_PCF5_32F,
       penumbraSize: 12,
       numCascades: 2,
@@ -151,6 +151,7 @@ export class LightingRig {
     aim(this.sun, theme.key.dir);
     this.sun.light!.color = color(theme.key.color);
     this.sun.light!.intensity = theme.key.intensity;
+    this.sun.light!.shadowIntensity = theme.key.shadowIntensity;
     aim(this.fill, theme.fill.dir);
     this.fill.light!.color = color(theme.fill.color);
     this.fill.light!.intensity = theme.fill.intensity;

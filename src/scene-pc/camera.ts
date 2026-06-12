@@ -10,9 +10,9 @@ export type Pose = { tx: number; ty: number; tz: number; yaw: number; pitch: num
 
 export const PRESETS: Record<string, Pose> = {
   aerial: { tx: 0, ty: 5.5, tz: 2, yaw: 41, pitch: 27, dist: 46 },
-  pool: { tx: -13, ty: -0.5, tz: 9.5, yaw: 188, pitch: 26, dist: 11 },
-  entrance: { tx: 0, ty: 1.2, tz: 5.5, yaw: 197, pitch: 9, dist: 13.5 },
-  podium: { tx: 0, ty: 1.5, tz: 2, yaw: 150, pitch: 14, dist: 22 },
+  pool: { tx: -12.5, ty: 0.3, tz: 9.5, yaw: -38, pitch: 17, dist: 11.5 },
+  entrance: { tx: 0, ty: 0.9, tz: 6.2, yaw: 10, pitch: 5.5, dist: 12 },
+  podium: { tx: 0, ty: 2.2, tz: 3, yaw: -28, pitch: 13, dist: 21 },
   tower: { tx: 0, ty: 7.5, tz: 0, yaw: 65, pitch: 12, dist: 34 },
 };
 

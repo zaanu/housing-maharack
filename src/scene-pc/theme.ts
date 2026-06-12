@@ -19,7 +19,7 @@ export type Theme = {
   cloudOpacity: number;
   fog: { color: string; start: number; end: number };
   ambient: string;
-  key: { dir: Vec3Tuple; color: string; intensity: number };
+  key: { dir: Vec3Tuple; color: string; intensity: number; shadowIntensity: number };
   fill: { dir: Vec3Tuple; color: string; intensity: number };
   top: { color: string; intensity: number };
   litWindows: number;
@@ -29,6 +29,7 @@ export type Theme = {
   skylineWindows: number;
   land: string;
   lawnTint: string;
+  grade: { tint: [number, number, number]; saturation: number; contrast: number; brightness: number };
   bloom: number;
 };
 
@@ -44,17 +45,18 @@ export const THEMES: Record<SceneMode, Theme> = {
     cloudLo: "#eef3f8",
     cloudOpacity: 0.85,
     fog: { color: "#dce9f2", start: 110, end: 330 },
-    ambient: "#42464a",
-    key: { dir: [0.45, 0.62, 0.3], color: "#fff3dd", intensity: 3.0 },
-    fill: { dir: [0.5, 0.4, 0.65], color: "#dcebf8", intensity: 0.35 },
-    top: { color: "#fff0e0", intensity: 0.2 },
+    ambient: "#3a4046",
+    key: { dir: [0.45, 0.52, 0.3], color: "#fff3dd", intensity: 3.4, shadowIntensity: 0.92 },
+    fill: { dir: [0.5, 0.4, 0.65], color: "#dcebf8", intensity: 0.25 },
+    top: { color: "#fff0e0", intensity: 0.15 },
     litWindows: 0,
     windowGlow: 0,
     skylineA: "#aebecc",
     skylineB: "#9dafc0",
     skylineWindows: 0,
     land: "#7e9c64",
-    lawnTint: "#b9d3a4",
+    lawnTint: "#a9c29a",
+    grade: { tint: [1, 1, 1], saturation: 1.02, contrast: 1.04, brightness: 1 },
     bloom: 0.012,
   },
   dusk: {
@@ -69,16 +71,17 @@ export const THEMES: Record<SceneMode, Theme> = {
     cloudOpacity: 0.8,
     fog: { color: "#bd8f7e", start: 95, end: 280 },
     ambient: "#4a3c38",
-    key: { dir: [-0.62, 0.22, -0.45], color: "#ffae5e", intensity: 2.6 },
+    key: { dir: [-0.62, 0.2, -0.45], color: "#ffb066", intensity: 3.0, shadowIntensity: 0.85 },
     fill: { dir: [0.55, 0.35, 0.6], color: "#ffd2ac", intensity: 0.55 },
     top: { color: "#fff0e0", intensity: 0.35 },
     litWindows: 0.45,
-    windowGlow: 1.8,
+    windowGlow: 1.25,
     skylineA: "#937a82",
     skylineB: "#866e76",
     skylineWindows: 0.7,
     land: "#62704e",
     lawnTint: "#b9d3a4",
+    grade: { tint: [1.07, 0.97, 0.9], saturation: 1.05, contrast: 1.05, brightness: 1.02 },
     bloom: 0.028,
   },
   night: {
@@ -92,8 +95,8 @@ export const THEMES: Record<SceneMode, Theme> = {
     cloudLo: "#1e2238",
     cloudOpacity: 0.6,
     fog: { color: "#0d1120", start: 75, end: 250 },
-    ambient: "#23283c",
-    key: { dir: [-0.5, 0.55, -0.35], color: "#b6c6f4", intensity: 0.8 },
+    ambient: "#2a3050",
+    key: { dir: [-0.5, 0.55, -0.35], color: "#b6c6f4", intensity: 0.8, shadowIntensity: 0.9 },
     fill: { dir: [0.55, 0.35, 0.6], color: "#8a8fc0", intensity: 0.22 },
     top: { color: "#fff0e0", intensity: 0.22 },
     litWindows: 0.8,
@@ -103,6 +106,7 @@ export const THEMES: Record<SceneMode, Theme> = {
     skylineWindows: 1,
     land: "#161d14",
     lawnTint: "#b9d3a4",
+    grade: { tint: [0.95, 0.98, 1.08], saturation: 1.0, contrast: 1.06, brightness: 1 },
     bloom: 0.042,
   },
 };

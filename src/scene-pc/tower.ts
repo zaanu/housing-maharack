@@ -398,6 +398,7 @@ export class Tower {
     }
     // helicopter
     const heli = b.group("heli", heliG, [0.1, 0.18, 0], -28);
+    heli.setLocalScale(1.55, 1.55, 1.55);
     const fus = mk({ color: "#1d2733", rough: 0.3, metal: 0.6 });
     const skid = mk({ color: "#46535f", rough: 0.5, metal: 0.4 });
     const accent = mk({ color: "#7c1f3e", rough: 0.35 });

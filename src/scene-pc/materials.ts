@@ -104,6 +104,7 @@ export function makeMaterial(store: TextureStore, opts: MatOpts = {}): pc.Standa
   const m = new pc.StandardMaterial();
   m.diffuse = color(opts.color ?? "#ffffff");
   m.gloss = 1 - (opts.rough ?? 0.85);
+  const glossCap = opts.rough !== undefined ? 1 - opts.rough : 1;
   m.useMetalness = true;
   m.metalness = opts.metal ?? 0;
   if (opts.envIntensity !== undefined) {
@@ -150,7 +151,7 @@ export function makeMaterial(store: TextureStore, opts: MatOpts = {}): pc.Standa
         m.glossMapChannel = "g";
         m.glossInvert = true;
         m.glossMapTiling = new pc.Vec2(tiling[0], tiling[1]);
-        m.gloss = 1;
+        m.gloss = glossCap; // scalar multiplies the map — caller's rough caps shine
         m.metalnessMap = tex;
         m.metalnessMapChannel = "b";
         m.metalnessMapTiling = new pc.Vec2(tiling[0], tiling[1]);

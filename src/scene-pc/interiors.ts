@@ -71,7 +71,7 @@ export function buildFloorInterior(
 
     // oak plank floor
     const planks = mat(`planks-${Math.round(rect.w)}`, {
-      color: "#e8d4ae",
+      color: "#dcc8a8",
       pbr: { asset: "brown_planks_09", tiling: [rect.w / 2.4, rect.d / 2.4], normalScale: 0.6 },
     });
     b.box("floor", planks, { parent: g, p: [0, 0.052, 0], s: [rect.w - 0.3, 0.03, rect.d - 0.3] });
@@ -167,6 +167,10 @@ function buildUnit(
   for (const t of [-0.78, 0, 0.78])
     box("win-pillar", wall, [hw * t, WALL_H / 2, hd], [w * 0.16, WALL_H, 0.05]);
   box("win-sill", wallAccent, [0, 0.1, hd], [w - 0.2, 0.2, 0.05]);
+  // sheer curtain panels inside the window wall
+  const sheer = mat("sheer", { color: "#f6f1e6", rough: 1, opacity: 0.45 });
+  box("curtain-a", sheer, [-w * 0.3, 0.34, hd - 0.07], [w * 0.18, 0.56, 0.02]);
+  box("curtain-b", sheer, [w * 0.34, 0.34, hd - 0.07], [w * 0.15, 0.56, 0.02]);
   // outer side wall: two segments
   for (const t of [-0.62, 0.62]) box("side-seg", wall, [hw, WALL_H / 2, hd * t], [0.05, WALL_H, d * 0.34]);
   // corridor-side walls (solid, with door gap)
@@ -175,8 +179,8 @@ function buildUnit(
   box("inner-side", wall, [-hw, WALL_H / 2, -hd * 0.5], [0.05, WALL_H, d * 0.46]);
 
   // living room (front outer corner)
-  const sofa = mat("sofa", { color: "#8a9aa8", rough: 0.95 });
-  const sofaDark = mat("sofa-d", { color: "#5d6c7a", rough: 0.95 });
+  const sofa = mat("sofa", { color: "#a39584", rough: 0.95 });
+  const sofaDark = mat("sofa-d", { color: "#7c6f5e", rough: 0.95 });
   box("sofa-base", sofa, [-w * 0.18, 0.07, d * 0.3], [0.95, 0.14, 0.34], true);
   box("sofa-back", sofaDark, [-w * 0.18, 0.17, d * 0.3 + 0.15], [0.95, 0.18, 0.08]);
   box("sofa-l", sofa, [-w * 0.18 - 0.42, 0.1, d * 0.22], [0.3, 0.18, 0.5], false, 0);
@@ -189,7 +193,7 @@ function buildUnit(
   box("tv", tv, [-w * 0.18, 0.26, -d * 0.0], [0.6, 0.3, 0.035]);
 
   // kitchen along corridor wall
-  const counter = mat("counter", { color: "#cfd6da", rough: 0.35, metal: 0.15 });
+  const counter = mat("counter", { color: "#d9d2c4", rough: 0.25, metal: 0.05 });
   const cabinet = mat("cabinet", { color: "#7a6a55", rough: 0.7 });
   box("kitchen-run", cabinet, [w * 0.22, 0.1, -d * 0.38], [1.2, 0.2, 0.3], true);
   box("kitchen-top", counter, [w * 0.22, 0.215, -d * 0.38], [1.24, 0.035, 0.34]);
