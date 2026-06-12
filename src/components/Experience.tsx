@@ -1,17 +1,19 @@
 "use client";
 
-import { Component, type ReactNode, useEffect, useMemo, useState } from "react";
+import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import type { PublicFloor, PublicHome, PublicProject } from "@/lib/types";
 import { installErrorMonitor, track, webglSupported } from "@/lib/client";
 import { AVAILABILITY_COLOR } from "@/lib/layout";
-import type { SceneMode } from "./scene/mode";
+import type { SceneMode } from "@/scene-pc/theme";
+import { detectQuality, type Quality } from "@/scene-pc/quality";
+import type { SceneController } from "./PlayCanvasScene";
 import FloorSelector from "./ui/FloorSelector";
 import HomePanel from "./ui/HomePanel";
 import FloorPlanSVG from "./ui/FloorPlanSVG";
 
-const BuildingScene = dynamic(() => import("./scene/BuildingScene"), { ssr: false });
+const PlayCanvasScene = dynamic(() => import("./PlayCanvasScene"), { ssr: false });
 
 const STAGES = ["Project View", "Building Slice", "Floor Selection", "Home Selection", "Home Details"];
 
@@ -33,6 +35,18 @@ class SceneErrorBoundary extends Component<{ onError: () => void; children: Reac
 }
 
 const MODE_LABEL: Record<SceneMode, string> = { day: "Day", dusk: "Dusk", night: "Night" };
+const QUALITY_LABEL: Record<Quality, string> = {
+  ultra: "Ultra",
+  high: "High",
+  balanced: "Balanced",
+  performance: "Performance",
+};
+const VIEWPOINTS: { key: "aerial" | "pool" | "entrance" | "podium"; label: string }[] = [
+  { key: "aerial", label: "Aerial" },
+  { key: "pool", label: "Pool" },
+  { key: "entrance", label: "Entrance" },
+  { key: "podium", label: "Podium" },
+];
 
 function ModeSwitch({ mode, onChange }: { mode: SceneMode; onChange: (m: SceneMode) => void }) {
   return (
@@ -65,19 +79,59 @@ function Legend() {
   );
 }
 
+function HelpOverlay({ onClose }: { onClose: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="absolute inset-0 z-40 flex items-center justify-center bg-slate-950/60 p-6 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="pointer-events-auto max-w-sm rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-base font-bold text-slate-900">Exploring Maharack Heights</h2>
+        <ul className="mt-3 space-y-2 text-sm text-slate-600">
+          <li><strong className="text-slate-800">Rotate</strong> — drag (one finger)</li>
+          <li><strong className="text-slate-800">Pan</strong> — right-drag or two-finger drag</li>
+          <li><strong className="text-slate-800">Zoom</strong> — scroll or pinch</li>
+          <li><strong className="text-slate-800">Slice the tower</strong> — tap any floor, or use the floor selector</li>
+          <li><strong className="text-slate-800">Inspect a home</strong> — tap a home on the open floor</li>
+          <li><strong className="text-slate-800">Amenities</strong> — hover the pool, gym or playground for details</li>
+        </ul>
+        <button
+          onClick={onClose}
+          className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-slate-700"
+        >
+          Start exploring
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 export default function Experience() {
   const [project, setProject] = useState<PublicProject | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [use3D, setUse3D] = useState(true);
   const [sceneReady, setSceneReady] = useState(false);
+  const [deviceType, setDeviceType] = useState<string>("");
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedHomeId, setSelectedHomeId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
   const [sceneMode, setSceneMode] = useState<SceneMode>("dusk");
+  const [quality, setQuality] = useState<Quality | "auto">("auto");
+  const [progress, setProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
+  const [showHelp, setShowHelp] = useState(false);
+  const controllerRef = useRef<SceneController | null>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     installErrorMonitor();
     if (!webglSupported()) setUse3D(false);
+    setQuality(detectQuality());
     const preview = new URLSearchParams(location.search).get("preview") === "1";
     setPreviewMode(preview);
     fetch(`/api/project${preview ? "?preview=1" : ""}`)
@@ -107,23 +161,36 @@ export default function Experience() {
     setSelectedHomeId(null);
   };
 
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void shellRef.current?.requestFullscreen?.();
+  };
+
   const loading = !project || (use3D && !sceneReady);
+  const streaming = sceneReady && progress.total > 0 && progress.loaded < progress.total;
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#241a3e]">
+    <div ref={shellRef} className="relative h-dvh w-full overflow-hidden bg-[#241a3e]">
       {/* 3D scene or 2D fallback */}
       {project && use3D && (
         <SceneErrorBoundary onError={() => setUse3D(false)}>
           <div className="absolute inset-0">
-            <BuildingScene
+            <PlayCanvasScene
               floors={floors}
               selectedFloor={selectedFloor}
               selectedHomeId={selectedHomeId}
               mode={sceneMode}
+              quality={quality}
               onSelectFloor={selectFloor}
               onSelectHome={selectHome}
               onClearSelection={() => setSelectedHomeId(null)}
-              onReady={() => setSceneReady(true)}
+              onReady={(info) => {
+                setSceneReady(true);
+                setDeviceType(info.deviceType);
+              }}
+              onProgress={(loaded, total) => setProgress({ loaded, total })}
+              onController={(c) => (controllerRef.current = c)}
+              onBootError={() => setUse3D(false)}
             />
           </div>
         </SceneErrorBoundary>
@@ -166,6 +233,16 @@ export default function Experience() {
         </div>
       )}
 
+      {/* texture streaming progress */}
+      {streaming && (
+        <div className="absolute left-0 right-0 top-0 z-30 h-0.5 bg-white/10">
+          <div
+            className="h-full bg-amber-400/90 transition-[width] duration-500"
+            style={{ width: `${Math.round((progress.loaded / progress.total) * 100)}%` }}
+          />
+        </div>
+      )}
+
       {/* header */}
       <header className="pointer-events-none absolute left-0 right-0 top-0 z-20 flex flex-col gap-2 p-4 md:p-5">
         <div className="flex items-start justify-between">
@@ -174,13 +251,51 @@ export default function Experience() {
               {project?.projectName ?? "Maharack Heights"}
             </h1>
             <p className="text-xs text-slate-500">
-              {project?.towerName ?? "Tower A"} · Interactive Slice View
+              {project?.towerName ?? "Tower A"} · Interactive Digital Twin
+              {deviceType && (
+                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  {deviceType}
+                </span>
+              )}
               {previewMode && <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800">PREVIEW</span>}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
             <Legend />
             {use3D && <ModeSwitch mode={sceneMode} onChange={setSceneMode} />}
+            {use3D && (
+              <div className="pointer-events-auto flex items-center gap-1.5">
+                <select
+                  value={quality}
+                  onChange={(e) => setQuality(e.target.value as Quality)}
+                  aria-label="Render quality"
+                  className="rounded-full bg-white/85 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow backdrop-blur"
+                >
+                  {quality === "auto" && <option value="auto">Auto</option>}
+                  {(Object.keys(QUALITY_LABEL) as Quality[]).map((q) => (
+                    <option key={q} value={q}>
+                      {QUALITY_LABEL[q]}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={toggleFullscreen}
+                  aria-label="Toggle fullscreen"
+                  title="Fullscreen"
+                  className="rounded-full bg-white/85 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow backdrop-blur hover:text-slate-900"
+                >
+                  ⛶
+                </button>
+                <button
+                  onClick={() => setShowHelp(true)}
+                  aria-label="Help"
+                  title="Help"
+                  className="rounded-full bg-white/85 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow backdrop-blur hover:text-slate-900"
+                >
+                  ?
+                </button>
+              </div>
+            )}
             <a
               href="/vastu-heights"
               className="pointer-events-auto rounded-full bg-[#2A2420]/90 px-3.5 py-1.5 text-[11px] font-semibold text-amber-200 shadow backdrop-blur hover:bg-[#2A2420] hover:text-amber-100 transition-colors"
@@ -213,6 +328,37 @@ export default function Experience() {
         </div>
       )}
 
+      {/* viewpoint presets + reset */}
+      {use3D && sceneReady && (
+        <div className="absolute bottom-5 right-4 z-20 flex flex-col items-end gap-1.5 md:right-5">
+          <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-white/85 p-1 shadow backdrop-blur">
+            {VIEWPOINTS.map((v) => (
+              <button
+                key={v.key}
+                onClick={() => {
+                  clearAll();
+                  controllerRef.current?.preset(v.key);
+                }}
+                className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-900 hover:text-white"
+              >
+                {v.label}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                clearAll();
+                controllerRef.current?.reset();
+              }}
+              aria-label="Reset camera"
+              title="Reset view"
+              className="rounded-full px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-900 hover:text-white"
+            >
+              ⟲
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* hint */}
       <AnimatePresence>
         {project && !selectedHome && (
@@ -234,6 +380,9 @@ export default function Experience() {
 
       {/* home details */}
       <HomePanel home={selectedHome} floor={selectedFloor} onClose={() => setSelectedHomeId(null)} />
+
+      {/* help overlay */}
+      <AnimatePresence>{showHelp && <HelpOverlay onClose={() => setShowHelp(false)} />}</AnimatePresence>
 
       {/* loading / error overlay */}
       <AnimatePresence>

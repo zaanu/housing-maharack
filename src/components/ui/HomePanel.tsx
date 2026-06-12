@@ -155,6 +155,10 @@ export default function HomePanel({
                       </div>
                     )}
                     <div className="flex justify-between">
+                      <dt className="text-slate-500">Price</dt>
+                      <dd className="font-medium text-slate-800">On request</dd>
+                    </div>
+                    <div className="flex justify-between">
                       <dt className="text-slate-500">Status</dt>
                       <dd>
                         <span
