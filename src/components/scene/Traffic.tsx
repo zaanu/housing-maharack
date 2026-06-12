@@ -129,7 +129,7 @@ function ArrivalCar() {
   return (
     <group>
       <group ref={g}>
-        <Car color="#e84d8a" kind="sports" speedRef={speedRef} neon="#3ec6c0" />
+        <Car color="#9e4a66" kind="sports" speedRef={speedRef} neon="#3f8a85" />
       </group>
       {/* security barrier just inside the gate */}
       <group position={[2.1, 0, 24.7]}>
@@ -142,8 +142,8 @@ function ArrivalCar() {
             <mesh key={i} position={[-0.45 - i * 0.9, 0, 0]} castShadow>
               <boxGeometry args={[0.9, 0.07, 0.07]} />
               <meshStandardMaterial
-                color={i % 2 ? "#e03c3c" : "#f5f1e6"}
-                emissive={i % 2 ? "#e03c3c" : "#000000"}
+                color={i % 2 ? "#a33d36" : "#f5f1e6"}
+                emissive={i % 2 ? "#a33d36" : "#000000"}
                 emissiveIntensity={i % 2 ? 0.4 : 0}
                 roughness={0.6}
               />
@@ -215,10 +215,10 @@ function Billboard() {
       {/* neon frame */}
       <mesh position={[0, 4.6, -0.14]}>
         <boxGeometry args={[7.5, 3.5, 0.03]} />
-        <meshStandardMaterial color="#e84d8a" emissive="#e84d8a" emissiveIntensity={lit ? 1.6 : 0.25} />
+        <meshStandardMaterial color="#9e4a66" emissive="#9e4a66" emissiveIntensity={lit ? 1.6 : 0.25} />
       </mesh>
-      {lit && <Halo p={[-3.5, 6.2, -0.2]} size={1.2} color="#ff7ab0" opacity={0.45} />}
-      {lit && <Halo p={[3.5, 6.2, -0.2]} size={1.2} color="#ff7ab0" opacity={0.45} />}
+      {lit && <Halo p={[-3.5, 6.2, -0.2]} size={1.2} color="#b06a84" opacity={0.45} />}
+      {lit && <Halo p={[3.5, 6.2, -0.2]} size={1.2} color="#b06a84" opacity={0.45} />}
       <Html position={[0, 4.6, -0.2]} center distanceFactor={24} zIndexRange={[15, 0]}>
         <div className="pointer-events-none select-none whitespace-nowrap text-center">
           <p className="text-[20px] font-black leading-tight tracking-tight text-amber-200 drop-shadow">MAHARACK HEIGHTS</p>
@@ -265,11 +265,11 @@ export default function Traffic() {
       ))}
 
       {/* flowing traffic */}
-      <StreetCar lane={ROAD_Z - 1.7} dir={-1} speed={7} x0={0} color="#3ec6c0" kind="sports" />
+      <StreetCar lane={ROAD_Z - 1.7} dir={-1} speed={7} x0={0} color="#3f8a85" kind="sports" />
       <StreetCar lane={ROAD_Z - 1.7} dir={-1} speed={5.6} x0={70} color="#f3a33c" kind="suv" />
       <StreetCar lane={ROAD_Z - 1.7} dir={-1} speed={6.1} x0={140} color="#e0e4e8" kind="sedan" />
-      <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={6.4} x0={30} color="#7c5cff" kind="sedan" />
-      <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={8.2} x0={100} color="#ff5a3c" kind="sports" neon="#7c5cff" />
+      <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={6.4} x0={30} color="#5e548f" kind="sedan" />
+      <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={8.2} x0={100} color="#b05038" kind="sports" neon="#5e548f" />
       <StreetCar lane={ROAD_Z + 1.7} dir={1} speed={5.1} x0={160} color="#4da6ff" kind="suv" />
       {/* school buses doing their rounds */}
       <StreetBus lane={ROAD_Z - 1.7} dir={-1} speed={4.6} x0={105} />
@@ -277,7 +277,7 @@ export default function Traffic() {
       <ArrivalCar />
 
       {/* parked along the kerb */}
-      <Car p={[16, 0, ROAD_Z - 2.9]} ry={Math.PI} color="#e8c14d" kind="sedan" lights={false} />
+      <Car p={[16, 0, ROAD_Z - 2.9]} ry={Math.PI} color="#b5954a" kind="sedan" lights={false} />
       <Car p={[-22, 0, ROAD_Z + 2.9]} ry={0} color="#46b46e" kind="suv" lights={false} />
 
       {/* streetlights along both kerbs */}
@@ -300,7 +300,7 @@ export default function Traffic() {
           [-30, ROAD_Z + 4.5],
         ]}
         speed={0.6}
-        shirt="#e8c14d"
+        shirt="#b5954a"
         pants="#3a4660"
       />
       <Walker
@@ -312,7 +312,7 @@ export default function Traffic() {
         ]}
         speed={0.5}
         offset={20}
-        shirt="#3ec6c0"
+        shirt="#3f8a85"
         pants="#5a4a3a"
         skin="#a8754f"
       />

@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { CameraControls } from "@react-three/drei";
+import { CameraControls, Environment } from "@react-three/drei";
 import type CameraControlsImpl from "camera-controls";
 import type { PublicFloor, PublicHome } from "@/lib/types";
 import { floorY, penthouseRect, unitRect } from "@/lib/layout";
 import Tower from "./Tower";
 import Atmosphere from "./Atmosphere";
 import Traffic from "./Traffic";
+import Effects from "./Effects";
 import { ModeProvider, THEMES, type SceneMode } from "./mode";
 
 function CameraRig({
@@ -153,7 +154,8 @@ export default function BuildingScene({
     <Canvas
       shadows
       dpr={[1, 2]}
-      camera={{ position: [21, 16, 23], fov: 45 }}
+      gl={{ antialias: false, powerPreference: "high-performance" }}
+      camera={{ position: [21, 16, 23], fov: 42 }}
       onCreated={onReady}
       onPointerMissed={onClearSelection}
       className="touch-none"
@@ -162,6 +164,11 @@ export default function BuildingScene({
       <ModeProvider value={mode}>
         <color attach="background" args={[theme.bg]} />
         <fog attach="fog" args={theme.fog} />
+        {/* image-based lighting from the bundled HDRI matched to the mode;
+            the visible sky stays the procedural dome in Atmosphere */}
+        <Suspense fallback={null}>
+          <Environment files={theme.hdri} environmentIntensity={theme.envIntensity} />
+        </Suspense>
         <hemisphereLight args={theme.hemi} />
         <ambientLight intensity={theme.ambient[1]} color={theme.ambient[0]} />
         <directionalLight
@@ -170,8 +177,9 @@ export default function BuildingScene({
           intensity={theme.key.intensity}
           castShadow
           shadow-mapSize={[2048, 2048]}
-          shadow-radius={6}
-          shadow-bias={-0.0002}
+          shadow-radius={5}
+          shadow-bias={-0.00015}
+          shadow-normalBias={0.02}
           shadow-camera-left={-45}
           shadow-camera-right={45}
           shadow-camera-top={45}
@@ -190,6 +198,7 @@ export default function BuildingScene({
           onSelectHome={onSelectHome}
         />
         <CameraRig selectedFloor={selectedFloor} selectedHomeId={selectedHomeId} />
+        <Effects />
       </ModeProvider>
     </Canvas>
   );

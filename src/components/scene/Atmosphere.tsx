@@ -1,13 +1,15 @@
 "use client";
 
 // Mode-aware atmosphere: gradient sky dome with a sun (or moon), optional
-// starfield, drifting clouds, a city skyline ringing the horizon whose
-// windows light up after dark, circling birds and a wide ground plane.
+// starfield, soft billboard clouds, a city skyline ringing the horizon whose
+// windows light up after dark, circling birds and a wide textured ground
+// plane stretching to the horizon.
 
-import { useMemo, useRef } from "react";
+import { Suspense, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { Halo } from "./glow";
+import { usePBRMaps } from "./materials";
 import { useSceneMode } from "./mode";
 
 const rnd = (seed: number, i: number) => {
@@ -37,9 +39,15 @@ void main() {
   float h = clamp(d.y, -0.02, 1.0);
   vec3 col = mix(mid, zenith, smoothstep(0.16, 0.62, h));
   col = mix(horizon, col, smoothstep(0.0, 0.20, h));
+  // warm haze hugging the horizon around the sun azimuth
   float s = max(dot(d, normalize(sunDir)), 0.0);
+  float hz = 1.0 - smoothstep(0.0, 0.34, h);
+  col += sunTint * hz * pow(s, 3.0) * bloom * 0.6;
   col += sunTint * pow(s, 14.0) * bloom;
   col += vec3(1.0, 0.95, 0.85) * pow(s, 90.0) * core;
+  // subtle dither breaks up gradient banding on large monitors
+  float n = fract(sin(dot(d.xy, vec2(12.9898, 78.233))) * 43758.5453);
+  col += (n - 0.5) * 0.008;
   gl_FragColor = vec4(col, 1.0);
 }
 `;
@@ -60,7 +68,7 @@ function SkyDome() {
   );
   return (
     <mesh key={mode}>
-      <sphereGeometry args={[380, 32, 24]} />
+      <sphereGeometry args={[380, 48, 32]} />
       <shaderMaterial
         vertexShader={SKY_VERT}
         fragmentShader={SKY_FRAG}
@@ -104,50 +112,72 @@ function Stars() {
   );
 }
 
-/** Flat-shaded cloud banks slowly orbiting the scene. */
+/** Soft cumulus puff drawn once to a canvas — overlapping radial blobs. */
+let cloudTex: THREE.CanvasTexture | null = null;
+function cloudTexture(): THREE.CanvasTexture {
+  if (!cloudTex) {
+    const w = 256;
+    const h = 128;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const g = c.getContext("2d")!;
+    for (let i = 0; i < 26; i++) {
+      const x = w * (0.16 + rnd(71, i) * 0.68);
+      // bias blobs toward a flat base with a puffy top
+      const y = h * (0.62 - rnd(72, i) * rnd(73, i) * 0.38);
+      const r = 14 + rnd(74, i) * 26;
+      const grad = g.createRadialGradient(x, y, 0, x, y, r);
+      const a = 0.10 + rnd(75, i) * 0.13;
+      grad.addColorStop(0, `rgba(255,255,255,${a})`);
+      grad.addColorStop(0.7, `rgba(255,255,255,${a * 0.45})`);
+      grad.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = grad;
+      g.fillRect(0, 0, w, h);
+    }
+    cloudTex = new THREE.CanvasTexture(c);
+  }
+  return cloudTex;
+}
+
+/** Billboard cloud banks slowly orbiting the scene. */
 function Clouds() {
   const { theme } = useSceneMode();
   const g = useRef<THREE.Group>(null);
   useFrame((_, delta) => {
-    if (g.current) g.current.rotation.y += delta * 0.0035;
+    if (g.current) g.current.rotation.y += delta * 0.0028;
   });
   const banks = useMemo(
     () =>
-      Array.from({ length: 12 }, (_, i) => {
-        const a = (i / 12) * Math.PI * 2 + rnd(5, i) * 0.8;
-        const r = 150 + rnd(6, i) * 110;
+      Array.from({ length: 14 }, (_, i) => {
+        const a = (i / 14) * Math.PI * 2 + rnd(5, i) * 0.8;
+        const r = 160 + rnd(6, i) * 130;
         return {
           x: Math.cos(a) * r,
-          y: 48 + rnd(7, i) * 70,
+          y: 52 + rnd(7, i) * 75,
           z: Math.sin(a) * r,
-          s: 0.8 + rnd(8, i) * 1.5,
-          tone: rnd(9, i),
+          w: (34 + rnd(8, i) * 56) * 1.6,
+          h: (17 + rnd(9, i) * 22) * 1.2,
+          tone: rnd(10, i),
+          o: 0.4 + rnd(11, i) * 0.5,
         };
       }),
     []
   );
+  const tex = cloudTexture();
   return (
     <group ref={g}>
       {banks.map((b, i) => (
-        <group key={i} position={[b.x, b.y, b.z]} scale={b.s}>
-          {[
-            [0, 0, 0, 14],
-            [12, -2, 3, 10],
-            [-13, -3, -2, 11],
-            [5, 4, -4, 8],
-            [-5, 3, 4, 7],
-          ].map(([x, y, z, r], j) => (
-            <mesh key={j} position={[x, y, z]} scale={[1, 0.42, 1]}>
-              <sphereGeometry args={[r, 10, 8]} />
-              <meshBasicMaterial
-                color={b.tone > 0.5 ? theme.cloudHi : theme.cloudLo}
-                transparent
-                opacity={theme.cloudOpacity}
-                fog={false}
-              />
-            </mesh>
-          ))}
-        </group>
+        <sprite key={i} position={[b.x, b.y, b.z]} scale={[b.w, b.h, 1]}>
+          <spriteMaterial
+            map={tex}
+            color={b.tone > 0.5 ? theme.cloudHi : theme.cloudLo}
+            transparent
+            opacity={theme.cloudOpacity * b.o}
+            depthWrite={false}
+            fog={false}
+          />
+        </sprite>
       ))}
     </group>
   );
@@ -241,6 +271,38 @@ function Bird({ r, h, speed, phase }: { r: number; h: number; speed: number; pha
   );
 }
 
+/** Land disc with a hole under the campus pool basin (which is dug below
+ * grade); ShapeGeometry UVs are world-unit. */
+let landGeoCache: THREE.BufferGeometry | null = null;
+function landGeo(): THREE.BufferGeometry {
+  if (!landGeoCache) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, 300, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    // pool basin footprint at world (-13, 10); plane y maps to world -z
+    hole.moveTo(-13 - 4.7, -10 - 2.05);
+    hole.lineTo(-13 + 4.7, -10 - 2.05);
+    hole.lineTo(-13 + 4.7, -10 + 2.05);
+    hole.lineTo(-13 - 4.7, -10 + 2.05);
+    hole.closePath();
+    shape.holes.push(hole);
+    landGeoCache = new THREE.ShapeGeometry(shape, 48);
+  }
+  return landGeoCache;
+}
+
+/** Textured land beyond the campus wall; falls back to flat colour while
+ * the grass maps stream in. */
+function TexturedLand() {
+  const { theme } = useSceneMode();
+  const maps = usePBRMaps("leafy_grass", [0.3, 0.3], { arm: false, normalScale: 0.5 });
+  return (
+    <mesh geometry={landGeo()} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+      <meshStandardMaterial {...maps} color={theme.land} roughness={1} />
+    </mesh>
+  );
+}
+
 export default function Atmosphere() {
   const { theme } = useSceneMode();
   return (
@@ -251,10 +313,15 @@ export default function Atmosphere() {
       <Clouds />
       <Skyline />
       {/* land plane stretching under the skyline */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
-        <circleGeometry args={[300, 48]} />
-        <meshStandardMaterial color={theme.land} roughness={1} />
-      </mesh>
+      <Suspense
+        fallback={
+          <mesh geometry={landGeo()} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.05, 0]}>
+            <meshStandardMaterial color={theme.land} roughness={1} />
+          </mesh>
+        }
+      >
+        <TexturedLand />
+      </Suspense>
       <Bird r={34} h={24} speed={0.14} phase={0} />
       <Bird r={40} h={27} speed={0.12} phase={2.1} />
       <Bird r={32} h={22} speed={0.16} phase={4.2} />

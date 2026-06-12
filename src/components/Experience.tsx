@@ -32,7 +32,7 @@ class SceneErrorBoundary extends Component<{ onError: () => void; children: Reac
   }
 }
 
-const MODE_LABEL: Record<SceneMode, string> = { day: "Day", night: "Night", gta: "GTA" };
+const MODE_LABEL: Record<SceneMode, string> = { day: "Day", dusk: "Dusk", night: "Night" };
 
 function ModeSwitch({ mode, onChange }: { mode: SceneMode; onChange: (m: SceneMode) => void }) {
   return (
@@ -73,7 +73,7 @@ export default function Experience() {
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedHomeId, setSelectedHomeId] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState(false);
-  const [sceneMode, setSceneMode] = useState<SceneMode>("gta");
+  const [sceneMode, setSceneMode] = useState<SceneMode>("dusk");
 
   useEffect(() => {
     installErrorMonitor();
