@@ -110,7 +110,7 @@ export default function HomePanel({
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "110%", opacity: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 28 }}
-            className="pointer-events-auto fixed bottom-0 left-0 right-0 z-30 rounded-t-2xl bg-white/95 p-5 shadow-2xl backdrop-blur md:bottom-auto md:left-auto md:right-5 md:top-24 md:w-[340px] md:rounded-2xl"
+            className="pointer-events-auto fixed bottom-0 left-0 right-0 z-30 max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-t-2xl bg-white/95 p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur md:bottom-auto md:left-auto md:right-5 md:top-24 md:max-h-[calc(100dvh-7rem)] md:w-[340px] md:rounded-2xl"
           >
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -119,7 +119,7 @@ export default function HomePanel({
                   {floor.label} · Home {home.letter}
                 </p>
               </div>
-              <button onClick={onClose} className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close panel">
+              <button onClick={onClose} className="rounded-full p-2.5 text-slate-400 hover:bg-slate-100" aria-label="Close panel">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                   <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                 </svg>
@@ -154,6 +154,10 @@ export default function HomePanel({
                         <dd className="font-medium text-slate-800">{home.orientation}</dd>
                       </div>
                     )}
+                    <div className="flex justify-between">
+                      <dt className="text-slate-500">Price</dt>
+                      <dd className="font-medium text-slate-800">On request</dd>
+                    </div>
                     <div className="flex justify-between">
                       <dt className="text-slate-500">Status</dt>
                       <dd>

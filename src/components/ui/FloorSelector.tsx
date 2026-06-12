@@ -15,10 +15,10 @@ export default function FloorSelector({
 }) {
   const sorted = [...floors].sort((a, b) => b.number - a.number);
   return (
-    <div className="pointer-events-auto flex max-h-[70vh] flex-col items-center gap-1 overflow-y-auto rounded-2xl bg-white/85 p-2 shadow-lg backdrop-blur">
+    <div className="pointer-events-auto flex max-h-[64dvh] flex-col items-center gap-1 overflow-y-auto rounded-2xl bg-white/85 p-2 shadow-lg backdrop-blur">
       <button
         onClick={onClear}
-        className={`mb-1 w-11 rounded-xl px-0 py-1.5 text-[10px] font-semibold uppercase tracking-wide transition ${
+        className={`mb-1 w-11 rounded-xl px-0 py-2.5 text-[10px] font-semibold uppercase tracking-wide transition ${
           selectedFloorId == null
             ? "bg-slate-900 text-white"
             : "text-slate-500 hover:bg-slate-100"
@@ -34,7 +34,7 @@ export default function FloorSelector({
             key={floor.id}
             onClick={() => onSelect(floor)}
             title={floor.label}
-            className={`relative w-11 rounded-xl py-1.5 text-sm font-semibold transition ${
+            className={`relative w-11 rounded-xl py-2.5 text-sm font-semibold transition ${
               active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-100"
             }`}
           >
