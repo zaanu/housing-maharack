@@ -139,7 +139,7 @@ export function seedProject(): ProjectState {
     if (n === 6) {
       floors.push(
         namedFloor(6, [
-          { name: "Aman Residence", config: "3 BHK", carpet: 1420, orientation: "East-facing balcony", availability: "available" },
+          { name: "Aman Mittal", config: "3 BHK", carpet: 1420, orientation: "East-facing balcony", availability: "available" },
           { name: "Karan Residence", config: "2 BHK", carpet: 1080, orientation: "Garden-facing", availability: "private", internalRef: "INTERNAL-REF-0042 — do not publish" },
           { name: "Sky Garden Home", config: "3 BHK", carpet: 1510, orientation: "North garden deck", availability: "reserved" },
           { name: "Maharack Signature Home", config: "4 BHK", carpet: 1980, orientation: "South-west corner", availability: "available" },
@@ -149,7 +149,7 @@ export function seedProject(): ProjectState {
       floors.push(
         namedFloor(9, [
           { name: "Mittal Family Home", config: "4 BHK", carpet: 1850, orientation: "Corner residence", availability: "private", internalRef: "INTERNAL-REF-0107 — do not publish" },
-          { name: "Choudhary Residence", config: "3 BHK", carpet: 1460, orientation: "West-facing balcony", availability: "reserved" },
+          { name: "Karan Choudhary", config: "3 BHK", carpet: 1460, orientation: "West-facing balcony", availability: "reserved" },
           { name: "Sunrise Home", config: "2 BHK", carpet: 1120, orientation: "East morning light", availability: "available" },
           { name: "Courtyard Home", config: "3 BHK", carpet: 1540, orientation: "Central courtyard view", availability: "available" },
         ])
