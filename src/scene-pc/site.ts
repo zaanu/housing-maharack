@@ -33,21 +33,14 @@ export class Site {
 
   constructor(private ctx: SceneContext) {
     this.root = ctx.builder.group("site", ctx.app.root);
-    // TEMP-DEBUG: ?siteskip=pool,gym,... bisects site sections
-    const skip = new Set(
-      (typeof location !== "undefined"
-        ? new URLSearchParams(location.search).get("siteskip") ?? ""
-        : ""
-      ).split(",")
-    );
-    if (!skip.has("grounds")) this.buildGrounds();
-    if (!skip.has("gate")) this.buildWallAndGate();
-    if (!skip.has("pool")) this.buildPool([-13, 0.02, 10]);
-    if (!skip.has("gym")) this.buildGym([-16, 0, -5]);
-    if (!skip.has("playground")) this.buildPlayground([13, 0, 13]);
-    if (!skip.has("landscaping")) this.buildLandscaping();
-    if (!skip.has("parking")) this.buildParking();
-    if (!skip.has("residents")) this.buildResidents();
+    this.buildGrounds();
+    this.buildWallAndGate();
+    this.buildPool([-13, 0.02, 10]);
+    this.buildGym([-16, 0, -5]);
+    this.buildPlayground([13, 0, 13]);
+    this.buildLandscaping();
+    this.buildParking();
+    this.buildResidents();
     ctx.onUpdate((_dt, time) => {
       // palm crowns sway in the breeze
       for (const c of this.palmCrowns) {
@@ -314,11 +307,16 @@ export class Site {
     };
     const c1 = mkCaustic(FLOOR_Y + 0.012, 0.24, [2, 0.95]);
     const c2 = mkCaustic(FLOOR_Y + 0.024, 0.17, [1.6, 0.8]);
+    let causticAcc = 0;
     ctx.onUpdate((dt) => {
-      c1.m.emissiveMapOffset.x += dt * 0.022;
-      c1.m.emissiveMapOffset.y += dt * 0.013;
-      c2.m.emissiveMapOffset.x -= dt * 0.017;
-      c2.m.emissiveMapOffset.y -= dt * 0.01;
+      causticAcc += dt;
+      if (causticAcc < 1 / 30) return;
+      const step = causticAcc;
+      causticAcc = 0;
+      c1.m.emissiveMapOffset.x += step * 0.022;
+      c1.m.emissiveMapOffset.y += step * 0.013;
+      c2.m.emissiveMapOffset.x -= step * 0.017;
+      c2.m.emissiveMapOffset.y -= step * 0.01;
       c1.m.update();
       c2.m.update();
     });
@@ -354,9 +352,13 @@ export class Site {
     water.update();
     ctx.litMat(water, 0.16, 0.06);
     b.ent("water", b.plane(), water, { parent: g, p: [0, WATER_Y, 0], s: [PW, 1, PD], receive: false });
+    let waterAcc = 0;
     ctx.onUpdate((dt) => {
-      water.normalMapOffset.x += dt * 0.02;
-      water.normalMapOffset.y += dt * 0.012;
+      waterAcc += dt;
+      if (waterAcc < 1 / 30) return;
+      water.normalMapOffset.x += waterAcc * 0.02;
+      water.normalMapOffset.y += waterAcc * 0.012;
+      waterAcc = 0;
       water.update();
     });
 
@@ -660,13 +662,15 @@ export class Site {
     const crown = b.group("crown", g, [topX, h + 0.04, 0]);
     const leafA = makeMaterial(ctx.store, { color: LEAFS[2], rough: 1 });
     const leafB = makeMaterial(ctx.store, { color: LEAFS[4], rough: 1 });
-    for (let i = 0; i < 9; i++) {
-      const a = (i / 9) * 360 + rnd(seed, i) * 28;
+    const full = ctx.quality.fullVegetation;
+    const frondCount = full ? 9 : 7;
+    for (let i = 0; i < frondCount; i++) {
+      const a = (i / frondCount) * 360 + rnd(seed, i) * 28;
       const frond = b.group("frond", crown, undefined, -a);
       const mat = i % 2 ? leafA : leafB;
       b.box("f1", mat, { parent: frond, p: [0.3, 0.05, 0], s: [0.55, 0.025, 0.15], rot: [0, 0, -14], cast: true });
       b.box("f2", mat, { parent: frond, p: [0.72, 0, 0], s: [0.45, 0.02, 0.11], rot: [0, 0, -37] });
-      b.box("f3", mat, { parent: frond, p: [1.0, -0.16, 0], s: [0.3, 0.016, 0.07], rot: [0, 0, -57] });
+      if (full) b.box("f3", mat, { parent: frond, p: [1.0, -0.16, 0], s: [0.3, 0.016, 0.07], rot: [0, 0, -57] });
     }
     b.ent("crown-core", b.sphere(10), makeMaterial(ctx.store, { color: LEAFS[0], rough: 1 }), {
       parent: crown,
@@ -694,8 +698,9 @@ export class Site {
       s: [0.92 * scale, 0.92 * scale, 0.92 * scale],
       cast: true,
     });
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2 + rnd(seed, i + 2) * 1.2;
+    const puffCount = ctx.quality.fullVegetation ? 5 : 2;
+    for (let i = 0; i < puffCount; i++) {
+      const a = (i / puffCount) * Math.PI * 2 + rnd(seed, i + 2) * 1.2;
       const r = (0.3 + rnd(seed, i + 10) * 0.22) * scale * 2;
       const c = LEAFS[Math.floor(rnd(seed, i + 50) * LEAFS.length)];
       b.ent("puff", b.canopy(seed * 5 + i), makeMaterial(ctx.store, { color: c, rough: 1 }), {
@@ -721,7 +726,8 @@ export class Site {
       cast: true,
     });
     const bloom = makeMaterial(this.ctx.store, { color: flower, rough: 0.9 });
-    for (let i = 0; i < 5; i++)
+    const bloomCount = this.ctx.quality.fullVegetation ? 5 : 2;
+    for (let i = 0; i < bloomCount; i++)
       b.ent("bloom", b.sphere(8), bloom, {
         parent: g,
         p: [(rnd(seed, i) - 0.5) * 0.36, 0.16 + rnd(seed, i + 5) * 0.18, (rnd(seed, i + 9) - 0.5) * 0.3],
@@ -775,26 +781,18 @@ export class Site {
 
   private buildLandscaping() {
     const g = this.root;
-    // TEMP-DEBUG: ?landskip=palms,trees,shrubs,lamps,benches
-    const skip = new Set(
-      (typeof location !== "undefined"
-        ? new URLSearchParams(location.search).get("landskip") ?? ""
-        : ""
-      ).split(",")
-    );
-    const palms: [number, number][] = skip.has("palms") ? [] : [
+    const palms: [number, number][] = [
       [-4.8, 16], [4.8, 16], [-9.4, 19.5], [4.8, 19.5], [-9.4, 23.6], [4.8, 23],
       [9.5, 13.5], [17, 16.2], [17.5, 10], [-20, 22], [20, 23],
       [-7.6, 12.5], [-19.5, 14.5], [-7, 8],
     ];
-    const palmN = typeof location !== "undefined" ? Number(new URLSearchParams(location.search).get("palms") ?? palms.length) : palms.length;
-    palms.slice(0, palmN).forEach(([x, z], i) => this.palm(g, [x, 0, z], 1.7 + ((i * 7) % 5) * 0.14, i + 1));
-    const trees: [number, number][] = skip.has("trees") ? [] : [
+    palms.forEach(([x, z], i) => this.palm(g, [x, 0, z], 1.7 + ((i * 7) % 5) * 0.14, i + 1));
+    const trees: [number, number][] = [
       [-21, -14], [21, -14], [-15, 18.5], [-12, -15.5], [12, -15.5], [18, -10],
       [-21, 2], [21, 6], [16, -2], [-20.5, -7], [8, -14], [-4, -15],
     ];
     trees.forEach(([x, z], i) => this.tree(g, [x, 0, z], 1 + ((i * 3) % 4) * 0.18, i + 21));
-    const shrubs: [number, number, string][] = skip.has("shrubs") ? [] : [
+    const shrubs: [number, number, string][] = [
       [-21.5, 24.8, "#b55ba6"], [-17.5, 24.8, "#e7e0d3"], [-13.5, 24.8, "#b55ba6"],
       [-9.5, 24.8, "#c98448"], [-5.5, 24.8, "#e7e0d3"], [5.5, 24.8, "#b55ba6"],
       [9.5, 24.8, "#e7e0d3"], [13.5, 24.8, "#b55ba6"], [17.5, 24.8, "#c98448"],
@@ -802,7 +800,6 @@ export class Site {
       [23.2, 6, "#b55ba6"], [23.2, -4, "#c98448"], [8.3, 9.3, "#b55ba6"], [18, 13.4, "#e7e0d3"],
     ];
     shrubs.forEach(([x, z, c], i) => this.shrub(g, [x, 0, z], c, i + 41));
-    if (!skip.has("lamps"))
     for (const [x, z] of [
       [-2.6, 16.5], [2.6, 16.5], [-2.6, 20.5], [2.6, 20.5], [-2.6, 24.5], [2.6, 24.5],
     ] as [number, number][])

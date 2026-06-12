@@ -13,6 +13,7 @@ import { windowTexture } from "./textures";
 import { FloorFader, modeOf } from "./slice";
 import { buildFloorInterior, type FloorInterior } from "./interiors";
 import { rnd, damp, type V3 } from "./builder";
+import { addHalo } from "./vehicles";
 import type { SceneContext } from "./context";
 import type { SceneMode } from "./theme";
 
@@ -423,13 +424,14 @@ export class Tower {
       rotor.setLocalEulerAngles(0, rotorA, 0);
       tailRotor.setLocalEulerAngles(rotorA * 1.8, 0, 0);
     });
-    // beacon
-    const beacon = makeMaterial(ctx.store, { color: "#ff2d2d", emissive: "#ff2d2d" });
+    // beacon: constant emissive bulb + a pulsing glow sprite (no material churn)
+    const beacon = makeMaterial(ctx.store, { color: "#ff2d2d", emissive: "#ff2d2d", emissiveIntensity: 1.4 });
     b.ent("beacon", b.sphere(10), beacon, { parent: g, p: [-5, 1.35, -2.5], s: [0.18, 0.18, 0.18] });
+    const beaconGlow = addHalo(ctx, g, [-5, 1.35, -2.5], 0.9, "#ff4d4d", 0.55);
     ctx.onUpdate((_dt, time) => {
-      if (!g.enabled) return;
-      beacon.emissiveIntensity = this.ctx.lit ? 1 + Math.max(0, Math.sin(time * 2.4)) * 3 : 0.35;
-      beacon.update();
+      if (!g.enabled || !beaconGlow.enabled) return;
+      const pulse = 0.5 + Math.max(0, Math.sin(time * 2.4)) * 0.8;
+      beaconGlow.setLocalScale(pulse, pulse, 1);
     });
 
     // rooftop sign

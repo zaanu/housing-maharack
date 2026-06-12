@@ -46,9 +46,11 @@ export class FloorFader {
     return f;
   }
 
+  private force = false;
+
   /** force re-apply on the next frame (after a base-opacity change) */
   dirty() {
-    this.structFade += 0.001;
+    this.force = true;
   }
 
   update(dt: number): void {
@@ -59,6 +61,10 @@ export class FloorFader {
     this.glassFade = damp(this.glassFade, gTarget, 6, dt);
     this.structFade = damp(this.structFade, t.structure, 6, dt);
     this.lift = damp(this.lift, t.lift, 6, dt);
+    // snap when close: ends the per-frame material.update burst sooner
+    if (Math.abs(this.glassFade - gTarget) < 0.012) this.glassFade = gTarget;
+    if (Math.abs(this.structFade - t.structure) < 0.012) this.structFade = t.structure;
+    if (Math.abs(this.lift - t.lift) < 0.01) this.lift = t.lift;
 
     if (Math.abs(this.glassFade - prevG) > 0.0004) {
       for (const f of this.glassMats) {
@@ -66,7 +72,8 @@ export class FloorFader {
         f.mat.update();
       }
     }
-    if (Math.abs(this.structFade - prevS) > 0.0004) {
+    if (this.force || Math.abs(this.structFade - prevS) > 0.0004) {
+      this.force = false;
       for (const f of this.structureMats) {
         const o = f.base * this.structFade;
         f.mat.opacity = o;

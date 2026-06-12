@@ -125,6 +125,7 @@ export default function Experience() {
   const [quality, setQuality] = useState<Quality | "auto">("auto");
   const [progress, setProgress] = useState<{ loaded: number; total: number }>({ loaded: 0, total: 0 });
   const [showHelp, setShowHelp] = useState(false);
+  const [fullscreenOk, setFullscreenOk] = useState(false);
   const controllerRef = useRef<SceneController | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
 
@@ -132,6 +133,7 @@ export default function Experience() {
     installErrorMonitor();
     if (!webglSupported()) setUse3D(false);
     setQuality(detectQuality());
+    setFullscreenOk(document.fullscreenEnabled ?? false);
     const preview = new URLSearchParams(location.search).get("preview") === "1";
     setPreviewMode(preview);
     fetch(`/api/project${preview ? "?preview=1" : ""}`)
@@ -253,7 +255,7 @@ export default function Experience() {
             <p className="text-xs text-slate-500">
               {project?.towerName ?? "Tower A"} · Interactive Digital Twin
               {deviceType && (
-                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                <span className="ml-2 hidden rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:inline">
                   {deviceType}
                 </span>
               )}
@@ -261,7 +263,9 @@ export default function Experience() {
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <Legend />
+            <div className="hidden sm:block">
+              <Legend />
+            </div>
             {use3D && <ModeSwitch mode={sceneMode} onChange={setSceneMode} />}
             {use3D && (
               <div className="pointer-events-auto flex items-center gap-1.5">
@@ -278,14 +282,16 @@ export default function Experience() {
                     </option>
                   ))}
                 </select>
-                <button
-                  onClick={toggleFullscreen}
-                  aria-label="Toggle fullscreen"
-                  title="Fullscreen"
-                  className="rounded-full bg-white/85 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow backdrop-blur hover:text-slate-900"
-                >
-                  ⛶
-                </button>
+                {fullscreenOk && (
+                  <button
+                    onClick={toggleFullscreen}
+                    aria-label="Toggle fullscreen"
+                    title="Fullscreen"
+                    className="rounded-full bg-white/85 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow backdrop-blur hover:text-slate-900"
+                  >
+                    ⛶
+                  </button>
+                )}
                 <button
                   onClick={() => setShowHelp(true)}
                   aria-label="Help"
@@ -330,7 +336,7 @@ export default function Experience() {
 
       {/* viewpoint presets + reset */}
       {use3D && sceneReady && (
-        <div className="absolute bottom-5 right-4 z-20 flex flex-col items-end gap-1.5 md:right-5">
+        <div className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-4 z-20 flex flex-col items-end gap-1.5 md:right-5">
           <div className="pointer-events-auto flex items-center gap-0.5 rounded-full bg-white/85 p-1 shadow backdrop-blur">
             {VIEWPOINTS.map((v) => (
               <button
@@ -367,7 +373,7 @@ export default function Experience() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="pointer-events-none absolute bottom-5 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900/85 px-4 py-2 text-xs font-medium text-white shadow-lg backdrop-blur"
+            className="pointer-events-none absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-full bg-slate-900/85 px-4 py-2 text-xs font-medium text-white shadow-lg backdrop-blur"
           >
             {selectedFloor
               ? "Tap a home to view its details"

@@ -5,6 +5,7 @@
 
 import * as pc from "playcanvas";
 import { THEMES, type SceneMode, type Theme } from "./theme";
+import type { QualitySettings } from "./quality";
 import { skyTexture, glowTexture } from "./textures";
 import { color } from "./materials";
 import type { Builder } from "./builder";
@@ -18,34 +19,29 @@ export class LightingRig {
   private halo: pc.Entity;
   private haloCore: pc.Entity;
   private haloMats: pc.StandardMaterial[] = [];
-  private envAtlases = new Map<string, pc.Texture>();
+  private envAtlases = new Map<string, Promise<pc.Texture | null>>();
   private envPending: string | null = null;
+  private destroyed = false;
   mode: SceneMode = "dusk";
 
   constructor(
     private app: pc.AppBase,
     private builder: Builder,
-    shadowResolution: number
+    quality: QualitySettings
   ) {
     const theme = THEMES[this.mode];
 
-    // TEMP-DEBUG: ?noshadow=1 disables sun shadows
-    const noShadow =
-      typeof location !== "undefined" && new URLSearchParams(location.search).get("noshadow") === "1";
     this.sun = new pc.Entity("sun");
     this.sun.addComponent("light", {
       type: "directional",
-      castShadows: !noShadow,
-      shadowResolution,
+      castShadows: true,
       shadowBias: 0.18,
       normalOffsetBias: 0.06,
-      shadowDistance: 160,
-      shadowType: pc.SHADOW_PCF5_32F,
       penumbraSize: 12,
-      numCascades: 2,
       cascadeDistribution: 0.7,
       intensity: theme.key.intensity,
     });
+    this.applyShadowTier(quality);
     app.root.addChild(this.sun);
 
     this.fill = new pc.Entity("fill");
@@ -106,27 +102,44 @@ export class LightingRig {
     this.apply(this.mode);
   }
 
-  /** Lazily prefilter the HDRI for a mode and set it as the env atlas. */
+  /** Tiered sun shadows: filter quality, distance and cascades per device class. */
+  applyShadowTier(q: QualitySettings) {
+    const light = this.sun.light!;
+    light.shadowResolution = q.shadowResolution;
+    light.shadowDistance = q.shadowDistance;
+    light.shadowType = q.shadowTier === 2 ? pc.SHADOW_PCF5_32F : pc.SHADOW_PCF3_16F;
+    light.numCascades = q.shadowTier === 0 ? 1 : 2;
+  }
+
+  /** Lazily prefilter the HDRI for a mode and set it as the env atlas.
+   * The cache stores promises so concurrent calls share one prefilter. */
   private async loadEnv(theme: Theme) {
     const url = theme.hdri;
     this.envPending = url;
-    let atlas = this.envAtlases.get(url);
-    if (!atlas) {
-      const asset = await new Promise<pc.Asset | null>((resolve) => {
-        this.app.assets.loadFromUrl(url, "texture", (err, a) => resolve(err ? null : a!));
+    let pending = this.envAtlases.get(url);
+    if (!pending) {
+      pending = new Promise<pc.Texture | null>((resolve) => {
+        this.app.assets.loadFromUrl(url, "texture", (err, a) => {
+          if (err || !a || this.destroyed) return resolve(null);
+          const src = a.resource as pc.Texture;
+          const lighting = pc.EnvLighting.generateLightingSource(src, { size: 128 });
+          const atlas = pc.EnvLighting.generateAtlas(lighting, { size: 512 });
+          lighting.destroy();
+          resolve(atlas);
+        });
       });
-      if (!asset) return;
-      const src = asset.resource as pc.Texture;
-      const lighting = pc.EnvLighting.generateLightingSource(src, { size: 128 });
-      atlas = pc.EnvLighting.generateAtlas(lighting, { size: 512 });
-      lighting.destroy();
-      this.envAtlases.set(url, atlas);
+      this.envAtlases.set(url, pending);
     }
+    const atlas = await pending;
     // only apply if the mode hasn't changed while we loaded
-    if (this.envPending === url) {
+    if (atlas && !this.destroyed && this.envPending === url) {
       this.app.scene.envAtlas = atlas;
       this.app.scene.skyboxIntensity = theme.envIntensity;
     }
+  }
+
+  dispose() {
+    this.destroyed = true;
   }
 
   apply(mode: SceneMode) {
